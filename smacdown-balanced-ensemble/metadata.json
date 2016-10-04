@@ -1,5 +1,5 @@
 {
-  "name": "Ensemble optimization",
+  "name": "Balanced Ensemble optimization",
   "description": "Script for ensemble optimization using SMACdown",
   "kind": "script",
   "source_code": "script.whizzml",
