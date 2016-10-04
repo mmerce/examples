@@ -64,12 +64,11 @@
 ;; Take a dataset, create a training and test set, and find the
 ;; optimal parameters.  The function returns a list of parameters
 ;; ranked by objective.
-(define (optimize-ensemble dataset-id objective-id metric options)
+(define (optimize-ensemble dataset-id objective-id metric)
   (let (train-params {"origin_dataset" dataset-id
                       "sample_rate" 0.8
                       "replacement" false
                       "seed" "SMACdown"}
-        train-params (merge options train-params)
         test-params (assoc train-params "out_of_bag" true)
         obj-id (if (= objective-id "default")
                    (dataset-get-objective-id dataset-id)
