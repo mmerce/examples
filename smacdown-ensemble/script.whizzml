@@ -1,26 +1,155 @@
+(define ALL_ATTRS ["resource_type" "stat_pruning" "balance_objective"
+                   "randomize" "node_threshold" "random_candidate_ratio"
+                   "number_of_models" "bias" "c" "eps" "default_numeric_value"
+                   "missing_numerics" "normalize" "regularization"
+                   "boosting"])
+
+(define ATTRS_PER_TYPE {"model" ["stat_pruning" "balance_objective"
+                                 "randomize" "node_threshold"]
+                        "ensemble" ["random_candidate_ratio" "stat_pruning"
+                                    "balance_objective" "number_of_models"
+                                    "randomize" "node_threshold"]
+                        "bensemble" ["stat_pruning" "balance_objective"
+                                     "boosting" "randomize" "node_threshold"]
+                        "logisticregression" ["bias" "c" "eps"
+                                              "default_numeric_value"
+                                              "missing_numerics"
+                                              "normalize" "regularization"]})
+
+;; Here's a custom generator for creating BigML models, ensembles, boosted
+;; ensembles or logistic regressions
+(define (smacdown-params-generator objective-type)
+  (lambda ()
+    (let (regression (= "numeric" objective-type)
+          type (rand)
+          type (if (and regression (< type 0.25))
+                   (* 4 type)
+                   type)
+          params (cond (< type 0.25)
+                       (smacdown-logistic-regression-params-generator)
+                       (< type 0.5)
+                       (smacdown-model-params-generator objective-type)
+                       (< type 0.75)
+                       (smacdown-ensemble-params-generator objective-type)
+                       (smacdown-boosted-ensemble-params-generator
+                        objective-type)))
+      (uniformize-params params))))
+
+;; The smacdown primitive needs a homogeneous set of attributes
+(define (uniformize-params params)
+  (iterate (p params ap ALL_ATTRS)
+    (if (not (contains? p ap))
+        (assoc p ap false)
+        p)))
+
+;; Here's a custom generator for creating BigML models.
+(define (smacdown-model-params-generator objective-type)
+  (let (max-trees 127
+        max-nodes 1999
+        regression (= "numeric" objective-type)
+        cand {"resource_type" "model"
+              "stat_pruning" (if (< (rand) 0.5) false true)
+              "balance_objective" (if (or regression (< (rand) 0.5))
+                                      false
+                                      true)
+              "randomize" true
+              "node_threshold" (round (rand-range 4 max-nodes))})
+    cand))
+
 ;; Here's a custom generator for creating BigML ensembles.  As
 ;; "random_candidate_ratio" tends towards 1, the ensemble becomes a
 ;; bag.
-(define (smacdown-ensemble--model-params-generator objective-type)
-  (lambda ()
-    (let (max-trees 127
-          max-nodes 1999
-          regression (= "numeric" objective-type)
-          cand {"random_candidate_ratio" (rand)
-                "stat_pruning" (if (< (rand) 0.5) false true)
-                "balance_objective" (if (or regression (< (rand) 0.5)) false true)
-                "number_of_models" (+ 1 (round (exp (* (log max-trees) (rand)))))
-                "randomize" true
-                "node_threshold" (round (rand-range 4 max-nodes))})
-      cand)))
+(define (smacdown-ensemble-params-generator objective-type)
+  (let (max-trees 127
+        max-nodes 1999
+        regression (= "numeric" objective-type)
+        cand {"resource_type" "ensemble"
+              "random_candidate_ratio" (rand)
+              "stat_pruning" (if (< (rand) 0.5) false true)
+              "balance_objective" (if (or regression (< (rand) 0.5)) false true)
+              "number_of_models" (+ 1 (round (exp (* (log max-trees) (rand)))))
+              "randomize" true
+              "node_threshold" (round (rand-range 4 max-nodes))})
+    cand))
+
+;; Here's a custom generator for creating BigML logistic regressions.
+(define (smacdown-logistic-regression-params-generator)
+  (let (max-c 256
+        dnv-random (rand)
+        default-numeric-value (cond (> dnv-random 0.8)
+                                    "mean"
+                                    (> dnv-random 0.6)
+                                    "median"
+                                    (> dnv-random 0.4)
+                                    "minimum"
+                                    (> dnv-random 0.2)
+                                    "maximum"
+                                    "zero")
+        c (* max-c (rand))
+        missing-numerics (if (< (rand) 0.5) false true)
+        normalize (if (< (rand) 0.5) false true)
+        regularization (if (< (rand) 0.5) "l1" "l2")
+        bias (if (< (rand) 0.5) false true)
+        eps (* (rand) 0.5)
+        cand {"resource_type" "logisticregression"
+              "bias" bias
+              "c" c
+              "eps" eps
+              "default_numeric_value" default-numeric-value
+              "missing_numerics" missing-numerics
+              "normalize" normalize
+              "regularization" regularization})
+    cand))
+
+;; Here's a custom generator for creating BigML boosted ensembles.
+(define (smacdown-boosted-ensemble-params-generator objective-type)
+  (let (max-trees 127
+        max-nodes 1999
+        max-iterations 256
+        regression (= "numeric" objective-type)
+        iterations (round (* max-iterations (rand)))
+        early-holdout (rand)
+        early-out-of-bag (if (< (rand) 0.5) false true)
+        step-out-of-bag (if (< (rand) 0.5) false true)
+        learning-rate (rand)
+        learning-rate (if (= learning-rate 1)
+                          (- learning-rate 0.00001)
+                          learning-rate)
+        learning-rate (if (= learning-rate 0)
+                          (+ learning-rate 0.00001)
+                          learning-rate)
+        cand {"resource_type" "bensemble"
+              "stat_pruning" (if (< (rand) 0.5) false true)
+              "balance_objective" (if (or regression (< (rand) 0.5))
+                                      false
+                                      true)
+              "boosting" {"iterations" iterations
+                          "early_holdout" early-holdout
+                          "early_out_of_bag" early-out-of-bag
+                          "learning_rate" learning-rate
+                          "step_out_of_bag" step-out-of-bag}
+              "randomize" true
+              "node_threshold" (round (rand-range 4 max-nodes))})
+    cand))
+
+
+;; Filter the uniformized attributs to use the applicable to each resource type
+(define (strict-params params)
+  (let (type (params "resource_type")
+        params (dissoc params "resource_type")
+        attrs (ATTRS_PER_TYPE type []))
+    (iterate (p params aa ALL_ATTRS)
+      (if (member? aa attrs)
+          p
+          (dissoc p aa)))))
 
 ;; This function takes a training and test set (and an objective field
-;; id) and evaluates a set of parameters by training a model with
+;; id) and evaluates a set of parameters by training a logistic regression with
 ;; those parameters and performing an evaluation on them.  We decide
-;; that phi is the metric we'd like to opimize, so we pull 1 - phi out
+;; that phi is the metric we'd like to optimize, so we pull 1 - phi out
 ;; of each evaluation to return as the objective, as the algorithm
 ;; seeks to *minimize* a value and we want to *maximize* phi.
-(define (smacdown-ensemble--evaluator train test obj metric name)
+(define (smacdown-evaluator train test obj metric name)
   (lambda (params itr)
     (log-info "Evaluating " (count params) " candidates...")
     (let (train-params {"dataset" train
@@ -29,7 +158,19 @@
                         "name" (str name " smacdown itr " itr " test model")}
           mod-fn (lambda (p) (merge p train-params))
           eval-fn (lambda (m) {"model" m "dataset" test})
-          mod-ids (create* "ensemble" (map mod-fn params))
+          mod-params (map mod-fn params)
+          logistic? (lambda(p) (= (p "resource_type" "") "logisticregression"))
+          model? (lambda(p) (= (p "resource_type" "") "model"))
+          ensemble? (lambda(p) (= (p "resource_type" "") "ensemble"))
+          bensemble? (lambda(p) (= (p "resource_type" "") "bensemble"))
+          logistic-params (map strict-params (filter logistic? mod-params))
+          model-params (map strict-params (filter model? mod-params))
+          ensemble-params (map strict-params (filter ensemble? mod-params))
+          bensemble-params (map strict-params (filter bensemble? mod-params))
+          mod-ids (create* "logisticregression" logistic-params)
+          mod-ids (concat mod-ids (create* "model" model-params))
+          mod-ids (concat mod-ids (create* "ensemble" ensemble-params))
+          mod-ids (concat mod-ids (create* "ensemble" bensemble-params))
           eval-ids (create* "evaluation" (map eval-fn mod-ids))
           phi (lambda (ev)
                 (let (metric-value (ev ["result" "model" metric] false))
@@ -46,13 +187,13 @@
         train-id (create-dataset train-params)
         test-id (create-dataset test-params)
         _ (wait* [train-id test-id])
-        eval-fn (smacdown-ensemble--evaluator train-id
-                                              test-id
-                                              objective-id
-                                              metric
-                                              "smacdown-ensemble")
-        generator (smacdown-ensemble--model-params-generator objective-type)
-        output (smacdown-optimize generator eval-fn "smacdown-ensemble"))
+        eval-fn (smacdown-evaluator train-id
+                                    test-id
+                                    objective-id
+                                    metric
+                                    "smacdown-model")
+        generator (smacdown-params-generator objective-type)
+        output (smacdown-optimize generator eval-fn "smacdown-model"))
      (for (p output)
        (assoc (dissoc p smacdown--actual)
           metric (- 1 (p smacdown--actual))))))

@@ -1,19 +1,19 @@
 {
-  "name": "Ensemble optimization",
-  "description": "Script for ensemble optimization using SMACdown.  The script can be used for both classification and regression ensembles, provided you select the appropriate metric to be optimized (see below).\n\nClassification metrics:\n\n- average_recall\n\n- average_phi\n\n- accuracy\n\n- average_precision\n\n- average\\_f\\_measure\n\nRegression metrics:\n\n- r_squared.",
+  "name": "Model optimization",
+  "description": "Script for optimization using SMACdown.  The script can be used for both classification and regression ensembles, provided you select the appropriate metric to be optimized (see below).\n\nClassification metrics:\n\n- average_recall\n\n- average_phi\n\n- accuracy\n\n- average_precision\n\n- average\\_f\\_measure\n\nRegression metrics:\n\n- r_squared.",
   "kind": "script",
   "source_code": "script.whizzml",
   "inputs":[
     {
       "name": "dataset-id",
       "type": "dataset-id",
-      "description": "Dataset for which we are seeking an optimal ensemble"
+      "description": "Dataset for which we are seeking an optimal model"
     },
     {
       "name": "objective-id",
       "type": "string",
       "default": "default",
-      "description": "The ensemble's objective field, or 'default' to use the dataset's default"
+      "description": "The objective field, or 'default' to use the dataset's default"
     },
     {
       "name": "metric",
