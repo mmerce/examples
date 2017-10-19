@@ -148,7 +148,7 @@
         res-params (strict-params params))
     (if (= type "bensemble")
       (create "ensemble" res-params)
-      (create "type" res-params))))
+      (create type res-params))))
 
 ;; This function takes a training and test set (and an objective field
 ;; id) and evaluates a set of parameters by training a logistic regression with
