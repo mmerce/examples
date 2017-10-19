@@ -39,7 +39,7 @@
 (define (uniformize-params params)
   (iterate (p params ap ALL_ATTRS)
     (if (not (contains? p ap))
-        (assoc p ap false)
+        (assoc p ap "N/A")
         p)))
 
 ;; Here's a custom generator for creating BigML models.
@@ -143,6 +143,13 @@
           p
           (dissoc p aa)))))
 
+(define (train-general params)
+  (let (type (params "resource_type")
+        res-params (strict-params params))
+    (if (= type "bensemble")
+      (create "ensemble" res-params)
+      (create "type" res-params))))
+
 ;; This function takes a training and test set (and an objective field
 ;; id) and evaluates a set of parameters by training a logistic regression with
 ;; those parameters and performing an evaluation on them.  We decide
@@ -159,18 +166,7 @@
           mod-fn (lambda (p) (merge p train-params))
           eval-fn (lambda (m) {"model" m "dataset" test})
           mod-params (map mod-fn params)
-          logistic? (lambda(p) (= (p "resource_type" "") "logisticregression"))
-          model? (lambda(p) (= (p "resource_type" "") "model"))
-          ensemble? (lambda(p) (= (p "resource_type" "") "ensemble"))
-          bensemble? (lambda(p) (= (p "resource_type" "") "bensemble"))
-          logistic-params (map strict-params (filter logistic? mod-params))
-          model-params (map strict-params (filter model? mod-params))
-          ensemble-params (map strict-params (filter ensemble? mod-params))
-          bensemble-params (map strict-params (filter bensemble? mod-params))
-          mod-ids (create* "logisticregression" logistic-params)
-          mod-ids (concat mod-ids (create* "model" model-params))
-          mod-ids (concat mod-ids (create* "ensemble" ensemble-params))
-          mod-ids (concat mod-ids (create* "ensemble" bensemble-params))
+          mod-ids (map train-general mod-params)
           eval-ids (create* "evaluation" (map eval-fn mod-ids))
           phi (lambda (ev)
                 (let (metric-value (ev ["result" "model" metric] false))
