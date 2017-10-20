@@ -30,13 +30,15 @@
   (lambda ()
     (let (regression (= "numeric" objective-type)
           type (rand)
-          type (if (and regression (< type 0.25))
-                   (* 4 type)
-                   type)
+          ;; type (if (and regression (< type 0.25))
+          ;;         (* 4 type)
+          ;;         type)
           params (cond (< type 0.25)
-                       (smacdown-logistic-regression-params-generator)
+                       ;; (smacdown-logistic-regression-params-generator)
+                       (smacdown-ensemble-params-generator objective-type)
                        (< type 0.5)
-                       (smacdown-model-params-generator objective-type)
+                       ;; (smacdown-model-params-generator objective-type)
+                       (smacdown-boosted-ensemble-params-generator
                        (< type 0.75)
                        (smacdown-ensemble-params-generator objective-type)
                        (smacdown-boosted-ensemble-params-generator
@@ -46,9 +48,7 @@
 ;; The smacdown primitive needs a homogeneous set of attributes
 (define (uniformize-params params)
   (iterate (p params ap ALL_ATTRS)
-    (if (not (contains? p ap))
-        (assoc p ap "N/A")
-        p)))
+    (if (not (contains? p ap)) (assoc p ap "N/A") p)))
 
 ;; Here's a custom generator for creating BigML models.
 (define (smacdown-model-params-generator objective-type)
@@ -170,12 +170,8 @@
       (map (lambda (eid) (phi (fetch (wait eid)))) eval-ids))))
 
 ;; Find optimal parameters using SMACdown
-(define (find-optimal-parameters train-params objective-id objective-type)
-  (let (test-params (assoc train-params "out_of_bag" true)
-        train-id (create-dataset train-params)
-        test-id (create-dataset test-params)
-        _ (wait* [train-id test-id])
-        eval-fn (smacdown-evaluator train-id
+(define (find-optimal-parameters train-id test-id objective-id objective-type)
+  (let (eval-fn (smacdown-evaluator train-id
                                     test-id
                                     objective-id
                                     metric
@@ -197,21 +193,44 @@
       (let (id ((fetch r) "output_dataset_resource" false))
         (when id (safe-delete id))))))
 
+(define (get-datasets train-id validation-id test-id write)
+  (let (treq {"origin_dataset" train-id
+              "sample_rate" 0.85
+              "replacement" false
+              "seed" "SMACdown"}
+        vreq (assoc train-params "out_of_bag" true)
+        [trid vid] (if (empty? validation-id)
+                     (let (tset (create-dataset treq)
+                           vset (create-dataset vreq)
+                           _ (when write
+                               (log-warn "No validation set specified")
+                               (log-info "Created validation set is " vset)))
+                       [tset vset])
+                     (prog (when write
+                             (log-info "Validation set is " validation-id))
+                           [train-id validation-id]))
+        tid (if (empty? test-id)
+              (prog (when write
+                      (log-warn "No test set specified; Using validation set"))
+                    vid)
+              (prog (when write (log-info "Test set is " test-id)) test-id)))
+    (wait* [trid tid vid])))
+
 ;; Take a dataset, create a training and test set, and find the
 ;; optimal parameters.  The function returns a list of parameters
 ;; ranked by objective.
-(define (optimize-ensemble dataset-id objective-id metric)
-  (let (train-params {"origin_dataset" dataset-id
-                      "sample_rate" 0.8
-                      "replacement" false
-                      "seed" "SMACdown"}
-        test-params (assoc train-params "out_of_bag" true)
+(define (optimize-ensemble train-id
+                           validation-id
+                           test-id
+                           objective-id
+                           metric)
+  (let ([trid vid tid] (get-datasets train-id validation-id test-id true)
         obj-id (if (= objective-id "default")
-                   (dataset-get-objective-id dataset-id)
-                   objective-id)
-        otype (or ((fetch dataset-id) ["fields" obj-id "optype"] false)
+                 (dataset-get-objective-id dataset-id)
+                 objective-id)
+        otype (or ((fetch train-id) ["fields" obj-id "optype"] false)
                   (raise {"message" (str "Invalid objective field")}))
-        params (find-optimal-parameters train-params obj-id otype)
+        params (find-optimal-parameters trid tid obj-id otype)
         _ (log-info "SMACdown search complete")
         _ (when delete-resources
             (log-info "Deleting intermediate resources...")
@@ -222,11 +241,10 @@
                         {"objective_field" obj-id
                          "name" "SMACdown Final Model"
                          "seed" "SMACdown"})
-        full-mod (train-general (assoc mod-prms "dataset" dataset-id))
-        train-id (create-dataset train-params)
-        test-id (create-dataset test-params)
-        best-mod (train-general (assoc mod-prms "dataset" train-id))
-        best-eval (create-evaluation best-mod test-id))
+        [trid vid tid] (get-datasets train-id validation-id test-id false)
+        full-mod (train-general (assoc mod-prms "dataset" train-id))
+        best-mod (train-general (assoc mod-prms "dataset" trid))
+        best-eval (create-evaluation best-mod tid))
     (wait* [best-eval full-mod])
     (when delete-resources
       (log-info "Deleting training/evaluation datasets...")
@@ -237,4 +255,5 @@
                  "evaluation" best-eval)
           (tail params))))
 
-(define result (optimize-ensemble dataset-id objective-id metric))
+(define result
+  (optimize-ensemble train-id validation-id test-id objective-id metric))

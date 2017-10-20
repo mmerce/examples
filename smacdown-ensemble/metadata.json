@@ -5,9 +5,21 @@
   "source_code": "script.whizzml",
   "inputs":[
     {
-      "name": "dataset-id",
+      "name": "train-id",
       "type": "dataset-id",
-      "description": "Dataset for which we are seeking an optimal model"
+      "description": "Training dataset for which we are seeking an optimal model"
+    },
+    {
+      "name": "validation-id",
+      "type": "dataset-id",
+      "default": null,
+      "description": "Held out data to use for model selection.  If not specified, a randomly selected subset of the training instances are used for the validation set."
+    },
+    {
+      "name": "test-id",
+      "type": "dataset-id",
+      "description": "A dataset on which to evaluate the final selected model, for the purposes of performance estimation.  If not specified, the validation set is used."
+      "default": null,
     },
     {
       "name": "objective-id",
