@@ -199,7 +199,7 @@
               "sample_rate" 0.85
               "replacement" false
               "seed" "SMACdown"}
-        vreq (assoc train-params "out_of_bag" true)
+        vreq (assoc treq "out_of_bag" true)
         [trid vid] (if (empty? validation-id)
                      (let (tset (create-dataset treq)
                            vset (create-dataset vreq)
@@ -227,7 +227,7 @@
                            metric)
   (let ([trid vid tid] (get-datasets train-id validation-id test-id true)
         obj-id (if (= objective-id "default")
-                 (dataset-get-objective-id dataset-id)
+                 (dataset-get-objective-id train-id)
                  objective-id)
         otype (or ((fetch train-id) ["fields" obj-id "optype"] false)
                   (raise {"message" (str "Invalid objective field")}))
