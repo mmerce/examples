@@ -1,8 +1,9 @@
 (define ALL_ATTRS ["resource_type" "stat_pruning" "balance_objective"
                    "randomize" "node_threshold" "random_candidate_ratio"
                    "number_of_models" "bias" "c" "eps" "default_numeric_value"
-                   "missing_numerics" "normalize" "regularization"
-                   "boosting"])
+                   "missing_numerics" "normalize" "regularization" "iterations"
+                   "early_holdout" "early_out_of_bag" "learning_rate"
+                   "step_out_of_bag"])
 
 (define ATTRS_PER_TYPE {"model" ["stat_pruning" "balance_objective"
                                  "randomize" "node_threshold"]
@@ -10,11 +11,18 @@
                                     "balance_objective" "number_of_models"
                                     "randomize" "node_threshold"]
                         "bensemble" ["stat_pruning" "balance_objective"
-                                     "boosting" "randomize" "node_threshold"]
+                                     "randomize" "node_threshold"]
                         "logisticregression" ["bias" "c" "eps"
                                               "default_numeric_value"
                                               "missing_numerics"
                                               "normalize" "regularization"]})
+
+(define BOOSTING_PARAMS ["iterations" "early_holdout" "early_out_of_bag"
+                         "learning_rate" "step_out_of_bag"])
+
+(define (select-boosting-params amap)
+  (let (assoc-param (lambda (m pname) (assoc m pname (amap pname))))
+    (reduce assoc-param {} BOOSTING_PARAMS)))
 
 ;; Here's a custom generator for creating BigML models, ensembles, boosted
 ;; ensembles or logistic regressions
@@ -76,14 +84,10 @@
 (define (smacdown-logistic-regression-params-generator)
   (let (max-c 256
         dnv-random (rand)
-        default-numeric-value (cond (> dnv-random 0.8)
-                                    "mean"
-                                    (> dnv-random 0.6)
-                                    "median"
-                                    (> dnv-random 0.4)
-                                    "minimum"
-                                    (> dnv-random 0.2)
-                                    "maximum"
+        default-numeric-value (cond (> dnv-random 0.8) "mean"
+                                    (> dnv-random 0.6) "median"
+                                    (> dnv-random 0.4) "minimum"
+                                    (> dnv-random 0.2) "maximum"
                                     "zero")
         c (* max-c (rand))
         missing-numerics (if (< (rand) 0.5) false true)
@@ -107,22 +111,17 @@
         max-nodes 1999
         max-iterations 256
         regression (= "numeric" objective-type)
-        iterations (round (rand-range 1 max-iterations))
-        early-holdout (if (< (rand) 0.5) (rand-range 0.1 0.5) 0.0)
-        early-out-of-bag (if (< (rand) 0.5) false true)
-        step-out-of-bag (if (< (rand) 0.5) false true)
-        learning-rate (rand-range 0.00001 0.9)
         cand {"resource_type" "bensemble"
               "stat_pruning" (if (< (rand) 0.5) false true)
               "balance_objective" (if (or regression (< (rand) 0.5))
                                       false
                                       true)
-              "boosting" {"iterations" iterations
-                          "early_holdout" early-holdout
-                          "early_out_of_bag" early-out-of-bag
-                          "learning_rate" learning-rate
-                          "step_out_of_bag" step-out-of-bag}
-              "randomize" true
+              "iterations" (round (rand-range 1 max-iterations))
+              "early_holdout" (if (< (rand) 0.5) (rand-range 0.1 0.5) 0.0)
+              "early_out_of_bag" (if (< (rand) 0.5) false true)
+              "learning_rate" (rand-range 0.00001 0.9)
+              "step_out_of_bag" (if (< (rand) 0.5) false true)
+              "randomize" (if (< (rand) 0.5) false true)
               "node_threshold" (round (rand-range 4 max-nodes))})
     cand))
 
@@ -133,15 +132,14 @@
         params (dissoc params "resource_type")
         attrs (ATTRS_PER_TYPE type []))
     (iterate (p params aa ALL_ATTRS)
-      (if (member? aa attrs)
-          p
-          (dissoc p aa)))))
+      (if (member? aa attrs) p (dissoc p aa)))))
 
 (define (train-general params)
   (let (type (params "resource_type")
         res-params (strict-params params))
     (if (= type "bensemble")
-      (create "ensemble" res-params)
+      (let (bparams (select-boosting-params params))
+        (create "ensemble" (assoc res-params "boosting" bparams)))
       (create type res-params))))
 
 ;; This function takes a training and test set (and an objective field
