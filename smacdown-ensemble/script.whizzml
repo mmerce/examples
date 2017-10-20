@@ -134,7 +134,7 @@
     (iterate (p params aa ALL_ATTRS)
       (if (member? aa attrs) p (dissoc p aa)))))
 
-(define (train-general params dataset-id)
+(define (train-general params)
   (let (type (params "resource_type")
         res-params (strict-params params))
     (if (= type "bensemble")
