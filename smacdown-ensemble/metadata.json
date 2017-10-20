@@ -18,8 +18,8 @@
     {
       "name": "test-id",
       "type": "dataset-id",
-      "description": "A dataset on which to evaluate the final selected model, for the purposes of performance estimation.  If not specified, the validation set is used."
       "default": null,
+      "description": "A dataset on which to evaluate the final selected model, for the purposes of performance estimation.  If not specified, the validation set is used."
     },
     {
       "name": "objective-id",
