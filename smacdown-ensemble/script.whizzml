@@ -107,17 +107,11 @@
         max-nodes 1999
         max-iterations 256
         regression (= "numeric" objective-type)
-        iterations (round (* max-iterations (rand)))
-        early-holdout (rand)
+        iterations (round (rand-range 1 max-iterations))
+        early-holdout (if (< (rand) 0.5) (rand-range 0.1 0.5) 0.0)
         early-out-of-bag (if (< (rand) 0.5) false true)
         step-out-of-bag (if (< (rand) 0.5) false true)
-        learning-rate (rand)
-        learning-rate (if (= learning-rate 1)
-                          (- learning-rate 0.00001)
-                          learning-rate)
-        learning-rate (if (= learning-rate 0)
-                          (+ learning-rate 0.00001)
-                          learning-rate)
+        learning-rate (rand-range 0.00001 0.9)
         cand {"resource_type" "bensemble"
               "stat_pruning" (if (< (rand) 0.5) false true)
               "balance_objective" (if (or regression (< (rand) 0.5))
