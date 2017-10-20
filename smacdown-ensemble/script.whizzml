@@ -134,7 +134,7 @@
     (iterate (p params aa ALL_ATTRS)
       (if (member? aa attrs) p (dissoc p aa)))))
 
-(define (train-general params)
+(define (train-general params dataset-id)
   (let (type (params "resource_type")
         res-params (strict-params params))
     (if (= type "bensemble")
@@ -219,11 +219,13 @@
             (map safe-delete (created-resources)))
         _ (log-info "Training model on full dataset...")
         mod-prms (merge ((head params) "parameters" {})
-                        {"objective_field" obj-id "seed" "SMACdown"})
-        full-mod (create-ensemble dataset-id mod-prms)
+                        {"objective_field" obj-id
+                         "name" "SMACdown Final Model"
+                         "seed" "SMACdown"})
+        full-mod (train-general (assoc mod-prms "dataset" dataset-id))
         train-id (create-dataset train-params)
         test-id (create-dataset test-params)
-        best-mod (create-ensemble train-id mod-prms)
+        best-mod (train-general (assoc mod-prms "dataset" train-id))
         best-eval (create-evaluation best-mod test-id))
     (wait* [best-eval full-mod])
     (when delete-resources
