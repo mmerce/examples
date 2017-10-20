@@ -12,11 +12,13 @@
     {
       "name": "validation-id",
       "type": "dataset-id",
+      "default": "",
       "description": "Held out data to use for model selection.  If not specified, a randomly selected subset of the training instances are used for the validation set."
     },
     {
       "name": "test-id",
       "type": "dataset-id",
+      "default": "",
       "description": "A dataset on which to evaluate the final selected model, for the purposes of performance estimation.  If not specified, the validation set is used."
     },
     {

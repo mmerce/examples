@@ -39,6 +39,7 @@
                        (< type 0.5)
                        ;; (smacdown-model-params-generator objective-type)
                        (smacdown-boosted-ensemble-params-generator
+                        objective-type)
                        (< type 0.75)
                        (smacdown-ensemble-params-generator objective-type)
                        (smacdown-boosted-ensemble-params-generator
@@ -178,9 +179,9 @@
                                     "smacdown-model")
         generator (smacdown-params-generator objective-type)
         output (smacdown-optimize generator eval-fn "smacdown-model"))
-     (for (p output)
-       (assoc (dissoc p smacdown--actual)
-          metric (- 1 (p smacdown--actual))))))
+    (for (p output)
+      (assoc (dissoc p smacdown--actual)
+             metric (- 1 (p smacdown--actual))))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
