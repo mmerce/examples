@@ -247,9 +247,6 @@
         best-mod (train-general (assoc mod-prms "dataset" trid))
         best-eval (create-evaluation best-mod tid))
     (wait* [best-eval full-mod])
-    (when delete-resources
-      (log-info "Deleting training/evaluation datasets...")
-      (map safe-delete [train-id test-id]))
     (cons (assoc (head params)
                  "full_model" full-mod
                  "model" best-mod
