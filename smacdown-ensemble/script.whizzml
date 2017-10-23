@@ -143,6 +143,13 @@
         (create "ensemble" (assoc res-params "boosting" bparams)))
       (create type res-params))))
 
+(define (metric-from-eval metric ev)
+  (let (metric-value (ev ["result" "model" metric] false))
+    (if (not (number? metric-value))
+      (raise {"message" (str metric " is not a valid metric!")
+                            "code" -30})
+      (- 1 metric-value))))
+
 ;; This function takes a training and test set (and an objective field
 ;; id) and evaluates a set of parameters by training a logistic regression with
 ;; those parameters and performing an evaluation on them.  We decide
@@ -160,15 +167,10 @@
           eval-fn (lambda (m) {"model" m "dataset" test})
           mod-params (map mod-fn params)
           mod-ids (map train-general mod-params)
-          eval-ids (create* "evaluation" (map eval-fn mod-ids))
-          phi (lambda (ev)
-                (let (metric-value (ev ["result" "model" metric] false))
-                  (if (not (number? metric-value))
-                    (raise {"message" (str metric " is not a valid metric!")
-                            "code" -30})
-                    (- 1 metric-value)))))
+          eval-ids (create* "evaluation" (map eval-fn mod-ids)))
       (log-info "Evaluation complete.")
-      (map (lambda (eid) (phi (fetch (wait eid)))) eval-ids))))
+      (map (lambda (eid) (metric-from-eval metric (fetch (wait eid))))
+           eval-ids))))
 
 ;; Find optimal parameters using SMACdown
 (define (find-optimal-parameters train-id test-id objective-id objective-type)
@@ -245,11 +247,13 @@
         [trid vid tid] (get-datasets train-id validation-id test-id false)
         full-mod (train-general (assoc mod-prms "dataset" train-id))
         best-mod (train-general (assoc mod-prms "dataset" trid))
-        best-eval (create-evaluation best-mod tid))
+        best-eval (create-evaluation best-mod tid)
+        test-metric (metric-from-eval metric (fetch (wait best-eval))))
     (wait* [best-eval full-mod])
     (cons (assoc (head params)
                  "full_model" full-mod
                  "model" best-mod
+                 (str metric " (test set)") test-metric
                  "evaluation" best-eval)
           (tail params))))
 
