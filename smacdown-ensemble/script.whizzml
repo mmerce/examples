@@ -150,8 +150,8 @@
   (let (metric-value (ev ["result" "model" metric] false))
     (if (not (number? metric-value))
       (raise {"message" (str metric " is not a valid metric!")
-                            "code" -30})
-      (- 1 metric-value))))
+              "code" -30})
+      metric-value)))
 
 ;; This function takes a training and test set (and an objective field
 ;; id) and evaluates a set of parameters by training a logistic regression with
@@ -172,7 +172,7 @@
           mod-ids (map train-general mod-params)
           eval-ids (create* "evaluation" (map eval-fn mod-ids)))
       (log-info "Evaluation complete.")
-      (map (lambda (eid) (metric-from-eval metric (fetch (wait eid))))
+      (map (lambda (eid) (- 1 (metric-from-eval metric (fetch (wait eid)))))
            eval-ids))))
 
 ;; Find optimal parameters using SMACdown
