@@ -24,8 +24,11 @@
   (let (assoc-param (lambda (m pname) (assoc m pname (amap pname))))
     (reduce assoc-param {} BOOSTING_PARAMS)))
 
-;; Here's a custom generator for creating BigML models, ensembles, boosted
-;; ensembles or logistic regressions
+;; Here's a custom generator for creating BigML models, ensembles,
+;; boosted ensembles or logistic regressions.  For now, we've disabled
+;; models and logistic regressions due to an external issue, but if
+;; you comment in the uncommented lines and comment out as necessary
+;; in the cond statement you should be able to re-enable them.
 (define (smacdown-params-generator objective-type)
   (lambda ()
     (let (regression (= "numeric" objective-type)
