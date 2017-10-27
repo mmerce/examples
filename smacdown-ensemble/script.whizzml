@@ -155,7 +155,7 @@
                        (ev ["result" "model" metric] false)
                        (let ([class class-met] (tail met-matches)
                              pcs (ev ["result" "model" "per_class_statistics"])
-                             cstats (stats-for-class pcs))
+                             cstats (stats-for-class class pcs))
                          (cstats class-met))))
     (if (not (number? metric-value))
       (raise {"message" (str metric " is not a valid metric!")
