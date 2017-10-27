@@ -146,8 +146,17 @@
         (create "ensemble" (assoc res-params "boosting" bparams)))
       (create type res-params))))
 
+(define (stats-for-class class per-class-stats)
+  (some (lambda (c) (when (= class (c "class_name")) c)) per-class-stats))
+
 (define (metric-from-eval metric ev)
-  (let (metric-value (ev ["result" "model" metric] false))
+  (let (met-matches (matches "(.*)->(.*)" metric)
+        metric-value (if (empty? met-matches)
+                       (ev ["result" "model" metric] false)
+                       (let ([class class-met] (tail met-matches)
+                             pcs (ev ["result" "model" "per_class_statistics"])
+                             cstats (stats-for-class pcs))
+                         (cstats class-met))))
     (if (not (number? metric-value))
       (raise {"message" (str metric " is not a valid metric!")
               "code" -30})
