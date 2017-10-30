@@ -34,6 +34,24 @@
       "description": "Metric to optimize.  Can be average_recall, average_phi, accuracy, average_precision, average_f_measure for classification or r_squared for regression."
     },
     {
+      "name": "test-model",
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to try individual trees in the search"
+    },
+    {
+      "name": "test-boosting",
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to try boosted ensembles in the search"
+    },
+    {
+      "name": "test-logistic",
+      "type": "boolean",
+      "default": false,
+      "description": "Whether to try logistic regression in the search"
+    },
+    {
       "name": "delete-resources",
       "type": "boolean",
       "default": true,

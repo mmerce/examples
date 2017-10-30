@@ -189,7 +189,7 @@
                                     objective-id
                                     metric
                                     "smacdown-model")
-        generator (smacdown-params-generator model-types objective-type)
+        generator (params-generator model-types objective-type)
         output (smacdown-optimize generator eval-fn "smacdown-model"))
     (for (p output)
       (assoc (dissoc p smacdown--actual)
