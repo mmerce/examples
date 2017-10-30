@@ -31,7 +31,7 @@
 ;; in the cond statement you should be able to re-enable them.
 (define (params-generator model-types objective-type)
   (lambda ()
-    (let (idx (floor (rand-range 0 (count model-types))))
+    (let (idx (floor (rand-range 0 (count model-types)))
           type (model-types idx)
           params (cond "logisticregression"
                        (logistic-regression-params-generator)
