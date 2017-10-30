@@ -255,6 +255,7 @@
         otype (or ((fetch train-id) ["fields" obj-id "optype"] false)
                   (raise {"message" (str "Invalid objective field")}))
         mtypes (make-model-types otype test-boosting test-model test-logistic)
+        _ (log-info "Search over types: " (str mtypes))
         params (find-optimal-parameters trid tid obj-id otype mtypes)
         _ (log-info "SMACdown search complete")
         _ (when delete-resources
