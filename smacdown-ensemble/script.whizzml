@@ -33,13 +33,13 @@
   (lambda ()
     (let (idx (floor (rand-range 0 (count model-types)))
           type (model-types idx)
-          params (cond "logisticregression"
+          params (cond (= type "logisticregression")
                        (logistic-regression-params-generator)
-                       "ensemble"
+                       (= type "ensemble")
                        (ensemble-params-generator objective-type)
-                       "model"
+                       (= type "model")
                        (model-params-generator objective-type)
-                       "boosted-ensemble"
+                       (= type "boosted-ensemble")
                        (boosted-ensemble-params-generator objective-type)))
       (uniformize-params params))))
 
