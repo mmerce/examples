@@ -40,6 +40,12 @@
       "description": "Whether to try individual trees in the search"
     },
     {
+      "name": "test-ensemble",
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to try decision forests in the search"
+    },
+    {
       "name": "test-boosting",
       "type": "boolean",
       "default": false,

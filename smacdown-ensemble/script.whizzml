@@ -10,8 +10,8 @@
                         "ensemble" ["random_candidate_ratio" "stat_pruning"
                                     "balance_objective" "number_of_models"
                                     "randomize" "node_threshold"]
-                        "bensemble" ["stat_pruning" "balance_objective"
-                                     "randomize" "node_threshold"]
+                        "boosted-ensemble" ["stat_pruning" "balance_objective"
+                                            "randomize" "node_threshold"]
                         "logisticregression" ["bias" "c" "eps"
                                               "default_numeric_value"
                                               "missing_numerics"
@@ -109,7 +109,7 @@
         max-nodes 1999
         max-iterations 256
         regression (= "numeric" objective-type)
-        cand {"resource_type" "bensemble"
+        cand {"resource_type" "boosted-ensemble"
               "stat_pruning" (if (< (rand) 0.5) false true)
               "balance_objective" (if (or regression (< (rand) 0.5))
                                       false
@@ -132,13 +132,18 @@
     (iterate (p params aa ALL_ATTRS)
       (if (member? aa attrs) p (dissoc p aa)))))
 
-(define (train-general params)
+(define (params-for-resource params)
   (let (type (params "resource_type")
         res-params (strict-params params))
-    (if (= type "bensemble")
+    (if (= type "boosted-ensemble")
       (let (bparams (select-boosting-params params))
-        (create "ensemble" (assoc res-params "boosting" bparams)))
-      (create type res-params))))
+        (assoc res-params "boosting" bparams))
+      res-params)))
+
+(define (train-general params)
+  (let (type (params "resource_type")
+        res-params (dissoc (params-for-resource params) "resource_type"))
+    (create (if (= type "boosted-ensemble") "ensemble" type) res-params)))
 
 (define (stats-for-class class per-class-stats)
   (some (lambda (c) (when (= class (c "class_name")) c)) per-class-stats))
@@ -192,8 +197,12 @@
         generator (params-generator model-types objective-type)
         output (smacdown-optimize generator eval-fn "smacdown-model"))
     (for (p output)
-      (assoc (dissoc p smacdown--actual)
-             metric (- 1 (p smacdown--actual))))))
+      (let (params (p "parameters")
+            type (params "resource_type")
+            res-params (dissoc (params-for-resource params) "resource_type"))
+        {"parameters" res-params
+         "resource_type" type
+         metric (- 1 (p smacdown--actual))}))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
@@ -229,9 +238,13 @@
               (prog (when write (log-info "Test set is " test-id)) test-id)))
     (wait* [trid tid vid])))
 
-(define (make-model-types objective-type test-boosting test-model test-logistic)
+(define (make-model-types objective-type
+                          test-ensemble
+                          test-boosting
+                          test-model
+                          test-logistic)
   (let (regression (= "numeric" objective-type)
-        test-map {"ensemble" true
+        test-map {"ensemble" test-ensemble
                   "model" test-model
                   "boosted-ensemble" test-boosting
                   "logisticregression" (and test-logistic (not regression))})
@@ -245,6 +258,7 @@
                            test-id
                            objective-id
                            metric
+                           test-ensemble
                            test-boosting
                            test-model
                            test-logistic)
@@ -254,7 +268,11 @@
                  objective-id)
         otype (or ((fetch train-id) ["fields" obj-id "optype"] false)
                   (raise {"message" (str "Invalid objective field")}))
-        mtypes (make-model-types otype test-boosting test-model test-logistic)
+        mtypes (make-model-types otype
+                                 test-ensemble
+                                 test-boosting
+                                 test-model
+                                 test-logistic)
         _ (log-info "Search over types: " (str mtypes))
         params (find-optimal-parameters trid tid obj-id otype mtypes)
         _ (log-info "SMACdown search complete")
@@ -286,6 +304,7 @@
                      test-id
                      objective-id
                      metric
+                     test-ensemble
                      test-boosting
                      test-model
                      test-logistic))
