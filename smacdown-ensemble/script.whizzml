@@ -201,9 +201,8 @@
             type (params "resource_type")
             mkey (str metric)
             res-params (dissoc (params-for-resource params) "resource_type"))
-        {"parameters" res-params
-         "resource_type" type
-         mkey (- 1 (p smacdown--actual))}))))
+        (assoc {"parameters" res-params "resource_type" type}
+               mkey (- 1 (p smacdown--actual)))))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
