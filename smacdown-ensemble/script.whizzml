@@ -194,15 +194,16 @@
                                     objective-id
                                     metric
                                     "smacdown-model")
-        generator (params-generator model-types objective-type)
-        output (smacdown-optimize generator eval-fn "smacdown-model"))
-    (for (p output)
-      (let (params (p "parameters")
-            type (params "resource_type")
-            mkey (str metric)
-            res-params (dissoc (params-for-resource params) "resource_type"))
-        (assoc {"parameters" res-params "resource_type" type}
-               mkey (- 1 (p smacdown--actual)))))))
+        generator (params-generator model-types objective-type))
+    (smacdown-optimize generator eval-fn "smacdown-model")))
+
+(define (format-output output)
+  (for (p output)
+    (let (params (p "parameters")
+          type (params "resource_type")
+          res-params (dissoc (params-for-resource params) "resource_type"))
+      (assoc {"parameters" res-params "resource_type" type}
+             (str metric) (- 1 (p smacdown--actual)))))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
@@ -275,6 +276,7 @@
                                  test-logistic)
         _ (log-info "Search over types: " (str mtypes))
         params (find-optimal-parameters trid tid obj-id otype mtypes)
+        output-params (format-output params)
         _ (log-info "SMACdown search complete")
         _ (when delete-resources
             (log-info "Deleting intermediate resources...")
@@ -291,12 +293,12 @@
         best-eval (create-evaluation best-mod tid)
         test-metric (metric-from-eval metric (fetch (wait best-eval))))
     (wait* [best-eval full-mod])
-    (cons (assoc (head params)
+    (cons (assoc (head output-params)
                  "full_model" full-mod
                  "model" best-mod
                  (str metric " (test set)") test-metric
                  "evaluation" best-eval)
-          (tail params))))
+          (tail output-params))))
 
 (define result
   (optimize-ensemble train-id
