@@ -203,7 +203,7 @@
           type (params "resource_type")
           res-params (dissoc (params-for-resource params) "resource_type"))
       (assoc {"parameters" res-params "resource_type" type}
-             (str metric) (- 1 (p smacdown--actual)))))))
+             (str metric) (- 1 (p smacdown--actual))))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
