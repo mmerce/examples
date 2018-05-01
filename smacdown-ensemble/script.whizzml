@@ -1,49 +1,55 @@
 (define ALL_ATTRS ["resource_type" "stat_pruning" "balance_objective"
                    "randomize" "node_threshold" "random_candidate_ratio"
                    "number_of_models" "bias" "c" "eps" "default_numeric_value"
-                   "missing_numerics" "normalize" "regularization"
-                   "boosting"])
+                   "missing_numerics" "normalize" "regularization" "iterations"
+                   "early_holdout" "early_out_of_bag" "learning_rate"
+                   "step_out_of_bag"])
 
 (define ATTRS_PER_TYPE {"model" ["stat_pruning" "balance_objective"
                                  "randomize" "node_threshold"]
                         "ensemble" ["random_candidate_ratio" "stat_pruning"
                                     "balance_objective" "number_of_models"
                                     "randomize" "node_threshold"]
-                        "bensemble" ["stat_pruning" "balance_objective"
-                                     "boosting" "randomize" "node_threshold"]
+                        "boosted-ensemble" ["stat_pruning" "balance_objective"
+                                            "randomize" "node_threshold"]
                         "logisticregression" ["bias" "c" "eps"
                                               "default_numeric_value"
                                               "missing_numerics"
                                               "normalize" "regularization"]})
 
-;; Here's a custom generator for creating BigML models, ensembles, boosted
-;; ensembles or logistic regressions
-(define (smacdown-params-generator objective-type)
+(define BOOSTING_PARAMS ["iterations" "early_holdout" "early_out_of_bag"
+                         "learning_rate" "step_out_of_bag"])
+
+(define (select-boosting-params amap)
+  (let (assoc-param (lambda (m pname) (assoc m pname (amap pname))))
+    (reduce assoc-param {} BOOSTING_PARAMS)))
+
+;; Here's a custom generator for creating BigML models, ensembles,
+;; boosted ensembles or logistic regressions.  For now, we've disabled
+;; models and logistic regressions due to an external issue, but if
+;; you comment in the uncommented lines and comment out as necessary
+;; in the cond statement you should be able to re-enable them.
+(define (params-generator model-types objective-type)
   (lambda ()
-    (let (regression (= "numeric" objective-type)
-          type (rand)
-          type (if (and regression (< type 0.25))
-                   (* 4 type)
-                   type)
-          params (cond (< type 0.25)
-                       (smacdown-logistic-regression-params-generator)
-                       (< type 0.5)
-                       (smacdown-model-params-generator objective-type)
-                       (< type 0.75)
-                       (smacdown-ensemble-params-generator objective-type)
-                       (smacdown-boosted-ensemble-params-generator
-                        objective-type)))
+    (let (idx (floor (rand-range 0 (count model-types)))
+          type (model-types idx)
+          params (cond (= type "logisticregression")
+                       (logistic-regression-params-generator)
+                       (= type "ensemble")
+                       (ensemble-params-generator objective-type)
+                       (= type "model")
+                       (model-params-generator objective-type)
+                       (= type "boosted-ensemble")
+                       (boosted-ensemble-params-generator objective-type)))
       (uniformize-params params))))
 
 ;; The smacdown primitive needs a homogeneous set of attributes
 (define (uniformize-params params)
   (iterate (p params ap ALL_ATTRS)
-    (if (not (contains? p ap))
-        (assoc p ap false)
-        p)))
+    (if (not (contains? p ap)) (assoc p ap "N/A") p)))
 
 ;; Here's a custom generator for creating BigML models.
-(define (smacdown-model-params-generator objective-type)
+(define (model-params-generator objective-type)
   (let (max-trees 127
         max-nodes 1999
         regression (= "numeric" objective-type)
@@ -59,7 +65,7 @@
 ;; Here's a custom generator for creating BigML ensembles.  As
 ;; "random_candidate_ratio" tends towards 1, the ensemble becomes a
 ;; bag.
-(define (smacdown-ensemble-params-generator objective-type)
+(define (ensemble-params-generator objective-type)
   (let (max-trees 127
         max-nodes 1999
         regression (= "numeric" objective-type)
@@ -73,17 +79,13 @@
     cand))
 
 ;; Here's a custom generator for creating BigML logistic regressions.
-(define (smacdown-logistic-regression-params-generator)
+(define (logistic-regression-params-generator)
   (let (max-c 256
         dnv-random (rand)
-        default-numeric-value (cond (> dnv-random 0.8)
-                                    "mean"
-                                    (> dnv-random 0.6)
-                                    "median"
-                                    (> dnv-random 0.4)
-                                    "minimum"
-                                    (> dnv-random 0.2)
-                                    "maximum"
+        default-numeric-value (cond (> dnv-random 0.8) "mean"
+                                    (> dnv-random 0.6) "median"
+                                    (> dnv-random 0.4) "minimum"
+                                    (> dnv-random 0.2) "maximum"
                                     "zero")
         c (* max-c (rand))
         missing-numerics (if (< (rand) 0.5) false true)
@@ -102,33 +104,22 @@
     cand))
 
 ;; Here's a custom generator for creating BigML boosted ensembles.
-(define (smacdown-boosted-ensemble-params-generator objective-type)
+(define (boosted-ensemble-params-generator objective-type)
   (let (max-trees 127
         max-nodes 1999
         max-iterations 256
         regression (= "numeric" objective-type)
-        iterations (round (* max-iterations (rand)))
-        early-holdout (rand)
-        early-out-of-bag (if (< (rand) 0.5) false true)
-        step-out-of-bag (if (< (rand) 0.5) false true)
-        learning-rate (rand)
-        learning-rate (if (= learning-rate 1)
-                          (- learning-rate 0.00001)
-                          learning-rate)
-        learning-rate (if (= learning-rate 0)
-                          (+ learning-rate 0.00001)
-                          learning-rate)
-        cand {"resource_type" "bensemble"
+        cand {"resource_type" "boosted-ensemble"
               "stat_pruning" (if (< (rand) 0.5) false true)
               "balance_objective" (if (or regression (< (rand) 0.5))
                                       false
                                       true)
-              "boosting" {"iterations" iterations
-                          "early_holdout" early-holdout
-                          "early_out_of_bag" early-out-of-bag
-                          "learning_rate" learning-rate
-                          "step_out_of_bag" step-out-of-bag}
-              "randomize" true
+              "iterations" (round (rand-range 1 max-iterations))
+              "early_holdout" (if (< (rand) 0.5) (rand-range 0.1 0.5) 0.0)
+              "early_out_of_bag" (if (< (rand) 0.5) false true)
+              "learning_rate" (rand-range 0.00001 0.9)
+              "step_out_of_bag" (if (< (rand) 0.5) false true)
+              "randomize" (if (< (rand) 0.5) false true)
               "node_threshold" (round (rand-range 4 max-nodes))})
     cand))
 
@@ -139,9 +130,36 @@
         params (dissoc params "resource_type")
         attrs (ATTRS_PER_TYPE type []))
     (iterate (p params aa ALL_ATTRS)
-      (if (member? aa attrs)
-          p
-          (dissoc p aa)))))
+      (if (member? aa attrs) p (dissoc p aa)))))
+
+(define (params-for-resource params)
+  (let (type (params "resource_type")
+        res-params (strict-params params))
+    (if (= type "boosted-ensemble")
+      (let (bparams (select-boosting-params params))
+        (assoc res-params "boosting" bparams))
+      res-params)))
+
+(define (train-general params)
+  (let (type (params "resource_type")
+        res-params (dissoc (params-for-resource params) "resource_type"))
+    (create (if (= type "boosted-ensemble") "ensemble" type) res-params)))
+
+(define (stats-for-class class per-class-stats)
+  (some (lambda (c) (when (= class (c "class_name")) c)) per-class-stats))
+
+(define (metric-from-eval metric ev)
+  (let (met-matches (matches "(.*)->(.*)" metric)
+        metric-value (if (empty? met-matches)
+                       (ev ["result" "model" metric] false)
+                       (let ([class class-met] (tail met-matches)
+                             pcs (ev ["result" "model" "per_class_statistics"])
+                             cstats (stats-for-class class pcs))
+                         (cstats class-met))))
+    (if (not (number? metric-value))
+      (raise {"message" (str metric " is not a valid metric!")
+              "code" -30})
+      metric-value)))
 
 ;; This function takes a training and test set (and an objective field
 ;; id) and evaluates a set of parameters by training a logistic regression with
@@ -159,44 +177,33 @@
           mod-fn (lambda (p) (merge p train-params))
           eval-fn (lambda (m) {"model" m "dataset" test})
           mod-params (map mod-fn params)
-          logistic? (lambda(p) (= (p "resource_type" "") "logisticregression"))
-          model? (lambda(p) (= (p "resource_type" "") "model"))
-          ensemble? (lambda(p) (= (p "resource_type" "") "ensemble"))
-          bensemble? (lambda(p) (= (p "resource_type" "") "bensemble"))
-          logistic-params (map strict-params (filter logistic? mod-params))
-          model-params (map strict-params (filter model? mod-params))
-          ensemble-params (map strict-params (filter ensemble? mod-params))
-          bensemble-params (map strict-params (filter bensemble? mod-params))
-          mod-ids (create* "logisticregression" logistic-params)
-          mod-ids (concat mod-ids (create* "model" model-params))
-          mod-ids (concat mod-ids (create* "ensemble" ensemble-params))
-          mod-ids (concat mod-ids (create* "ensemble" bensemble-params))
-          eval-ids (create* "evaluation" (map eval-fn mod-ids))
-          phi (lambda (ev)
-                (let (metric-value (ev ["result" "model" metric] false))
-                  (if (not (number? metric-value))
-                    (raise {"message" (str metric " is not a valid metric!")
-                            "code" -30})
-                    (- 1 metric-value)))))
+          mod-ids (map train-general mod-params)
+          eval-ids (create* "evaluation" (map eval-fn mod-ids)))
       (log-info "Evaluation complete.")
-      (map (lambda (eid) (phi (fetch (wait eid)))) eval-ids))))
+      (map (lambda (eid) (- 1 (metric-from-eval metric (fetch (wait eid)))))
+           eval-ids))))
 
 ;; Find optimal parameters using SMACdown
-(define (find-optimal-parameters train-params objective-id objective-type)
-  (let (test-params (assoc train-params "out_of_bag" true)
-        train-id (create-dataset train-params)
-        test-id (create-dataset test-params)
-        _ (wait* [train-id test-id])
-        eval-fn (smacdown-evaluator train-id
+(define (find-optimal-parameters train-id
+                                 test-id
+                                 objective-id
+                                 objective-type
+                                 model-types)
+  (let (eval-fn (smacdown-evaluator train-id
                                     test-id
                                     objective-id
                                     metric
                                     "smacdown-model")
-        generator (smacdown-params-generator objective-type)
-        output (smacdown-optimize generator eval-fn "smacdown-model"))
-     (for (p output)
-       (assoc (dissoc p smacdown--actual)
-          metric (- 1 (p smacdown--actual))))))
+        generator (params-generator model-types objective-type))
+    (smacdown-optimize generator eval-fn "smacdown-model")))
+
+(define (format-output output)
+  (for (p output)
+    (let (params (p "parameters")
+          type (params "resource_type")
+          res-params (dissoc (params-for-resource params) "resource_type"))
+      (assoc {"parameters" res-params "resource_type" type}
+             (str metric) (- 1 (p smacdown--actual))))))
 
 ;; Delete resources ignoring errors
 (define (safe-delete id)
@@ -209,21 +216,67 @@
       (let (id ((fetch r) "output_dataset_resource" false))
         (when id (safe-delete id))))))
 
+(define (get-datasets train-id validation-id test-id write)
+  (let (treq {"origin_dataset" train-id
+              "sample_rate" 0.85
+              "replacement" false
+              "seed" "SMACdown"}
+        vreq (assoc treq "out_of_bag" true)
+        [trid vid] (if (empty? validation-id)
+                     (let (tset (create-dataset treq)
+                           vset (create-dataset vreq)
+                           _ (when write
+                               (log-warn "No validation set specified")
+                               (log-info "Created validation set is " vset)))
+                       [tset vset])
+                     (prog (when write
+                             (log-info "Validation set is " validation-id))
+                           [train-id validation-id]))
+        tid (if (empty? test-id)
+              (prog (when write
+                      (log-warn "No test set specified; Using validation set"))
+                    vid)
+              (prog (when write (log-info "Test set is " test-id)) test-id)))
+    (wait* [trid tid vid])))
+
+(define (make-model-types objective-type
+                          test-ensemble
+                          test-boosting
+                          test-model
+                          test-logistic)
+  (let (regression (= "numeric" objective-type)
+        test-map {"ensemble" test-ensemble
+                  "model" test-model
+                  "boosted-ensemble" test-boosting
+                  "logisticregression" (and test-logistic (not regression))})
+    (reduce (lambda (v k) (if (test-map k) (cons k v) v)) [] (keys test-map))))
+
 ;; Take a dataset, create a training and test set, and find the
 ;; optimal parameters.  The function returns a list of parameters
 ;; ranked by objective.
-(define (optimize-ensemble dataset-id objective-id metric)
-  (let (train-params {"origin_dataset" dataset-id
-                      "sample_rate" 0.8
-                      "replacement" false
-                      "seed" "SMACdown"}
-        test-params (assoc train-params "out_of_bag" true)
+(define (optimize-ensemble train-id
+                           validation-id
+                           test-id
+                           objective-id
+                           metric
+                           test-ensemble
+                           test-boosting
+                           test-model
+                           test-logistic)
+  (let ([trid vid tid] (get-datasets train-id validation-id test-id true)
         obj-id (if (= objective-id "default")
-                   (dataset-get-objective-id dataset-id)
-                   objective-id)
-        otype (or ((fetch dataset-id) ["fields" obj-id "optype"] false)
+                 (dataset-get-objective-id train-id)
+                 objective-id)
+        otype (or ((fetch train-id) ["fields" obj-id "optype"] false)
                   (raise {"message" (str "Invalid objective field")}))
-        params (find-optimal-parameters train-params obj-id otype)
+        mtypes (make-model-types otype
+                                 test-ensemble
+                                 test-boosting
+                                 test-model
+                                 test-logistic)
+        _ (log-info "Search over types: " (str mtypes))
+        params (find-optimal-parameters trid tid obj-id otype mtypes)
+        output-params (format-output params)
         _ (log-info "SMACdown search complete")
         _ (when delete-resources
             (log-info "Deleting intermediate resources...")
@@ -231,20 +284,29 @@
             (map safe-delete (created-resources)))
         _ (log-info "Training model on full dataset...")
         mod-prms (merge ((head params) "parameters" {})
-                        {"objective_field" obj-id "seed" "SMACdown"})
-        full-mod (create-ensemble dataset-id mod-prms)
-        train-id (create-dataset train-params)
-        test-id (create-dataset test-params)
-        best-mod (create-ensemble train-id mod-prms)
-        best-eval (create-evaluation best-mod test-id))
+                        {"objective_field" obj-id
+                         "name" "SMACdown Final Model"
+                         "seed" "SMACdown"})
+        [trid vid tid] (get-datasets train-id validation-id test-id false)
+        full-mod (train-general (assoc mod-prms "dataset" train-id))
+        best-mod (train-general (assoc mod-prms "dataset" trid))
+        best-eval (create-evaluation best-mod tid)
+        test-metric (metric-from-eval metric (fetch (wait best-eval))))
     (wait* [best-eval full-mod])
-    (when delete-resources
-      (log-info "Deleting training/evaluation datasets...")
-      (map safe-delete [train-id test-id]))
-    (cons (assoc (head params)
+    (cons (assoc (head output-params)
                  "full_model" full-mod
                  "model" best-mod
+                 (str metric " (test set)") test-metric
                  "evaluation" best-eval)
-          (tail params))))
+          (tail output-params))))
 
-(define result (optimize-ensemble dataset-id objective-id metric))
+(define result
+  (optimize-ensemble train-id
+                     validation-id
+                     test-id
+                     objective-id
+                     metric
+                     test-ensemble
+                     test-boosting
+                     test-model
+                     test-logistic))
