@@ -430,9 +430,10 @@
 (define (select-features dataset-id nfeatures objective-id options k-folds)
   (let (obj-id (get-objective dataset-id objective-id)
         k-fold-datasets (create-k-folds dataset-id k-folds)
-        input-ids (default-inputs dataset-id obj-id))
+        input-ids (default-inputs dataset-id obj-id)
+        important-ids (important-fields dataset-id obj-id))
     (loop (selected []
-           potentials input-ids)
+           potentials important-ids)
       (if (or (>= (count selected) nfeatures) (empty? potentials))
         (response dataset-id k-fold-datasets selected)
         (let (_ (log-info "Making new candidates...")
@@ -462,13 +463,21 @@
   (let (fields ((fetch dataset-id) "fields"))
     (map (lambda (id) (fields [id "name"])) ids)))
 
-;; Get the default set of input fields for this dataset (all preferred
-;; fields minus the objective field).
+;; Get the default set of input fields for this dataset.
 (define (default-inputs dataset-id obj-id)
   (let (fields ((fetch dataset-id) "fields")
         fids (keys fields))
     (filter (lambda (k) (and (fields [k "preferred"] false) (not (= obj-id k))))
             fids)))
+
+;; Get the set of input fields for this dataset by using the importance of the
+;; fields in a random decision forest
+(define (important-fields dataset-id obj-id)
+  (let (ensemble-id (create-and-wait-ensemble dataset-id
+                                              {"randomize" true
+                                               "objective_field" obj-id})
+        ensemble (fetch ensemble-id))
+    (keys (ensemble "importance"))))
 
 ;; Make a list of input fields candidates given the potential
 ;; features in potentials.
@@ -481,7 +490,11 @@
 ;; model ids corresponding to those features, select the best
 ;; potential feature by performing an evaluation on each model and
 ;; returning the feature with the best performance.
-(define (select-feature k-fold-datasets objective-id options candidates potentials)
+(define (select-feature k-fold-datasets
+                        objective-id
+                        options
+                        candidates
+                        potentials)
   (let (make-attrs (lambda (inp) (merge {"input_fields" inp}
                                         options))
         all-reqs (map make-attrs candidates)
