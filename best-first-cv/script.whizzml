@@ -431,7 +431,8 @@
   (let (obj-id (get-objective dataset-id objective-id)
         k-fold-datasets (create-k-folds dataset-id k-folds)
         input-ids (default-inputs dataset-id obj-id)
-        important-ids (important-fields dataset-id obj-id))
+        important-ids (important-fields dataset-id obj-id)
+        _ (log-info important-ids))
     (loop (selected []
            potentials important-ids)
       (if (or (>= (count selected) nfeatures) (empty? potentials))
