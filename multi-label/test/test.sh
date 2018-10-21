@@ -22,7 +22,7 @@ run_bigmler --train ./multilabel.csv --no-model \
             --project "Whizzml examples tests" --output-dir cmd/pre_test
 # building the inputs for the test
 prefix='[["dataset", "'
-suffix='"], ["objective", "class"], ["model-kind" ,"model"], ["model-parameters", {}]]'
+suffix='"], ["objective", "class"], ["model-kind" ,"model"], ["model-parameters", {"excluded_fields": ["000000"]}]]'
 text=''
 cat cmd/pre_test/dataset | while read datasets
 do

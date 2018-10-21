@@ -39,9 +39,12 @@
 
 ;; Adapt parameters to each items objective field
 (define (per-item-conf item items parms objective)
-  (let (other-items (filter (lambda (x) (not (= x item))) items))
+  (let (other-items (filter (lambda (x) (not (= x item))) items)
+        excluded-fields (parms "excluded_fields" [])
+        excluded-fields (concat excluded-fields other-items)
+        excluded-fields (append excluded-fields objective))
     (merge parms {"objective_field" item
-                  "excluded_fields" (append other-items objective)})))
+                  "excluded_fields" excluded-fields})))
 
 
 ;; Creates a model and returns the corresponding ID. When the kind of model
