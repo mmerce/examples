@@ -1,0 +1,25 @@
+(define number-of-terms 2)
+
+(define (topic-name topic topics)
+  (let (terms (topic "top_terms")
+        n (- number-of-terms 1)
+        seen (map (lambda (t) (t "name")) (values topics)))
+    (loop (ts (map head (tail terms)))
+      (if (empty? ts)
+        (head (head terms))
+        (let (c (join separator (cons (head (head terms)) (take n ts))))
+          (if (member? c seen) (recur (tail ts)) c))))))
+
+(define (rename-topics tm-id)
+  (let (tm (fetch tm-id)
+        topics (reduce (lambda (ns topic)
+                         (assoc ns (topic "id") {"name" (topic-name topic ns)}))
+                       {}
+                       (tm ["topic_model" "topics"])))
+    (try (update tm-id {"topics" topics})
+         (catch e
+           (log-error "Error updating topics: " e)
+           (raise e)))
+    (count topics)))
+
+(define result (rename-topics topic-model))

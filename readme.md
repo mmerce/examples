@@ -84,6 +84,8 @@ By convention, when the artifact is a library, the files are called
   uses cross-validation.
 - `multi-label` Classification for datasets with a
    multi-label (items) objective field.
+- `name-topics` Give topics in a Topic Model names derived from its
+   most frequent terms.
 
 ## How to install
 
