@@ -6,7 +6,7 @@
   "inputs":[
     {
       "name": "topic-model",
-      "type": "topicmodel",
+      "type": "topicmodel-id",
       "description": "The topic model to update"
     },
     {

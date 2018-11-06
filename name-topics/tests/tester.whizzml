@@ -1,0 +1,163 @@
+;; --------------------------------------------------------
+;; Followings procedures are equal for all script tests
+;; ---------------------------------------------------------
+
+;; create-tests-response
+;;
+;; Executes all tests and creates test-script response
+;;
+;; Inputs:
+;;   script-id: (resource-id) ID of the script that we want to test
+;;   tests-inputs: (list) List of execution inputs for the script
+;;   tests-output-checks: (list) List of tests to make with the output of
+;;                               the executions
+;;
+;; Output: (list) Test Script response
+;;
+(define (create-tests-response script-id
+			       tests-inputs
+			       tests-outputs-checks)
+  (let (results (execute-tests script-id
+			       tests-inputs
+			       tests-outputs-checks)
+	;; True if there were 0 execution errors
+	no-exec-error (every? (lambda (n) (not (n "exec-error"))) results)
+	;; True id there were 0 test errors
+	no-test-error (when no-exec-error
+			(every? (lambda (n)
+				  (every? (lambda (m) m) (n "response")))
+				results)))
+    ;; If there were no execution errors and all tests were correct
+    (if (and no-exec-error no-test-error)
+      ["Success"]
+      (map (lambda (n) (n "response")) results))))
+
+;; check-response
+;;
+;; Checks response from script execution and tests it
+;;
+;; Inputs:
+;;   response: Output from script execution
+;;   output-checks: (list) List of tests to make with the output of the
+;;                         executions
+;;
+;; Output: (map) Tests execution information
+;;
+(define (check-response response output-checks)
+  (let (correct (resource-id? response)
+	;; If the execution was correct, obtain its outputs
+	;; otherwise, return the execution error message
+	response-outputs (when  correct
+			   ((fetch response)["execution" "outputs"]))
+        test-results (when correct
+		       ;; Run all tests from output-checks
+		       (map (lambda (n) ((n 0)(n 1) response-outputs))
+			    output-checks)))
+    (if correct
+      (assoc {} "exec-error" false "response" test-results)
+      (assoc {} "exec-error" true  "response" response))))
+
+
+;; check-field-value
+;;
+;; Checks field value from script execution  (using regular expressions)
+;;
+;; Inputs:
+;;   field-value: (list) Field name and regular expression to test with
+;;                       the execution response
+;;   response: (list) Response from a script execution
+;;
+;; Output: (boolean) True if field output value matches expression,
+;;                   False otherwise
+;;
+(define (check-field-value field-value response)
+  (let (field (field-value 0)
+	value (field-value 1)
+	out-field  (some (lambda (n) (if (= (n 0) field) n  false)) response))
+    (if (= out-field false)
+      false
+      (matches? value (str (out-field 1))))))
+
+;; check-field-exists
+;;
+;; Checks if a field exists in a script response
+;;
+;; Inputs:
+;;   field: (string) Field name
+;;   response: (list) Response from a script execution
+;;
+;; Output: (boolean) True if field exists, false otherwise 
+;;
+(define (check-field-exists field response)
+  (some (lambda (n) (if (= (n 0) field) true false)) response))
+
+;; execute-tests
+;;
+;; Receives an script id and a list of execution inputs and creates
+;; executions of the script with the different inputs
+;;
+;; Inputs:
+;;   script-id: (resource-id) ID of the script that we want to test
+;;   inputs: (list) List of execution inputs for the script
+;;   outputs: (list) List of tests to make with the output of the
+;;                         executions
+;;
+;; Output: (list) Output from all the  executions
+;;
+(define (execute-tests script-id inputs outputs)
+  (map test-script (repeat (count inputs) script-id) inputs outputs))
+
+
+;; test-script
+;;
+;; Creates an execution of a script with a set of inputs and
+;; obtains its response
+;;
+;; Inputs:
+;;   script-id: (resource-id) ID of the script that we want to test
+;;   input: (list) Inputs for the execution
+;;   output-checks: (list) List of tests to make with the output of the
+;;                         executions
+;;
+;; Outputs: (List) Output response from script execution
+(define (test-script script-id input output-checks)
+  (let (inputs {"inputs" input}
+	exec (try
+	      (log-info "Creating new execution with inputs " input)
+	        ;; Execute the script and return its response
+	        (create-and-wait-execution script-id inputs)
+		(catch e
+		  (log-info "- There was an error in the execution")
+		  ;; If there is an error in the execution, return
+		  ;; the error information
+		  e)))
+    (check-response exec output-checks)))
+
+;; --------------------------------------------------------
+;; Specific code for this test
+;; ---------------------------------------------------------
+
+;; Example dataset from the gallery
+(define dataset-id "dataset/5bc89a1deba31d1eb70007f5")
+;; Created topic models
+(define topic-models [(create-and-wait-topicmodel dataset-id)])
+;; Inputs parameters lists
+(define tests-inputs [[["topic-model", (topic-models 0)],
+		       ["number-of-terms", 2],
+	               ["separator", "-"]],
+		      [["topic-model",(topic-models 0)],
+		       ["number-of-terms", 3],
+	               ["separator", ","]]])
+(define tests-outputs-checks [[[check-field-exists "result"]
+			      [check-field-value  ["result" "40"]]]
+			     [[check-field-exists  "result"]
+			      [check-field-value  ["result" "40"]]]])
+
+;; test-results
+;;
+;; Output: (list) Results from execution of the tests
+;;
+(define test-results (create-tests-response script-id
+					    tests-inputs
+					    tests-outputs-checks))
+    
