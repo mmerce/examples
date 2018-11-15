@@ -23,8 +23,8 @@
     }],
   "outputs":[
     {
-      "name": "result",
-      "type": "number",
-      "description": "Number of topics renamed in the input topic model"
+      "name": "output-topic-model",
+      "type": "topicmodel-id",
+      "description": "Id of the updated topic model"
     }]
 }
