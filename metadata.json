@@ -32,6 +32,7 @@
     "stepwise-regression",
     "batch-explanations",
     "best-first-cv",
-    "multi-label"
+    "multi-label",
+    "name-topics"
   ]
 }
