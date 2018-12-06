@@ -1,6 +1,6 @@
 {
   "name": "Merge sources in Project by tag",
-  "description": "Given a Project and a list of tags (optional), merge the Sources in the project grouped by tag. If no tag is given, all the Sources in the Project are tagged after the sequence of field names and processed.",
+  "description": "Given a Project and a list of tags (optional), merges the Sources in the Project grouped by tag. If no tag is given, all the Sources in the Project are tagged after the sequence of field names and processed. The result is a new merged Dataset per tag that contains all the Sources that share the same field names sequence. Old merges are removed.",
   "kind": "script",
   "source_code": "script.whizzml",
   "inputs": [
