@@ -1,0 +1,166 @@
+(define FIELDS-TAG-LABEL "fields-hash:")
+(define FIELDS-LABEL-LEN (count FIELDS-TAG-LABEL))
+
+;; get-project-id
+;;
+;; Returns the project ID
+;;
+;;  Inputs:
+;;    project: (string) Project ID or name
+;;
+;;  Output: (string) Project ID
+
+(define (get-project-id project)
+  (if (and (resource-id? project)
+           (= "project" (resource-type project)))
+      project
+      (let (projects (list-projects {"name" project}))
+        (if (empty? projects)
+            (raise (str "The project '" project "' does not exist."
+                        " Please, create a project and add the sources"
+                        " that you need to merge."))
+            ((head projects) "resource")))))
+
+;; make-fields-tag
+;;
+;; Creates the string to be used as tag from the fields sequence
+;;
+;;  Inputs:
+;;    source: (map) Source information as extracted from list-sources
+;;
+;;  Output: (string) Tag string
+
+(define (make-fields-tag source)
+  (let (full-source (fetch (wait (source "resource")))
+        fields (full-source "fields")
+        fields (iterate (acc [] field-id (keys fields))
+                 (append acc {"name" (fields [field-id "name"])
+                              "column" (fields [field-id "column_number"])}))
+        fields (sort-by-key "column" fields)
+        fields-hash (md5 (str fields)))
+    (str FIELDS-TAG-LABEL (count fields) "|" fields-hash)))
+
+;; create-sources-datasets
+;;
+;; Creates a new dataset for each source in the given project that
+;; has the given tag
+;;
+;;  Inputs:
+;;    project-id: (string) Project ID
+;;    tag: (string) Unique tag associated to the sources
+;;
+;;  Output: (list) List of new dataset IDs
+
+(define (create-sources-datasets project-id tag last-date)
+  (let (sources-args {"project" project-id "tags" tag}
+        _ (log-info last-date)
+        sources-args (if last-date
+                         (merge sources-args {"created__gt" last-date})
+                         sources-args)
+        sources (list-sources sources-args))
+    (log-info "** count" (count sources))
+    (for (source sources)
+      (create "dataset" {"source" (source "resource")}))))
+
+;; make-sources-tag
+;;
+;; Associates a new tag to each source in the first argument by
+;; using the number of fields and a hash of the fields name sequence.
+;;
+;;  Inputs:
+;;    sources: (list) List of source information as retrieved by list-sources
+;;
+;;  Output: (list) List of tags associated to these sources
+
+(define (make-sources-tag sources)
+  (let (filter-fn (lambda (x) (= (subs x 0 FIELDS-LABEL-LEN)
+                                 FIELDS-TAG-LABEL))
+        filter-out-fn (lambda (x) (!= (subs x 0 FIELDS-LABEL-LEN)
+                                  FIELDS-TAG-LABEL)))
+    (iterate (acc [] source sources)
+      (let (tags (source "tags" [])
+            fields-tag (filter filter-fn tags)
+            new-fields-tag (make-fields-tag source))
+        (when (or (empty? fields-tag)
+                  (!= (head fields-tag) new-fields-tag))
+          (update-and-wait (source "resource")
+                           {"tags" (cons new-fields-tag
+                                         (filter filter-out-fn tags))}))
+        (if (not (member? new-fields-tag acc))
+            (append acc new-fields-tag)
+            acc)))))
+
+;; merge-compatible
+;;
+;; Creates a list of datasets, one per tag, by merging the datasets that
+;; share that tag in the project.
+;;
+;;  Inputs:
+;;    project-id: (string) ID of the project that contains the sources
+;;    tag-datasets: (map)  Tag and list of datasets to be grouped. Each tag
+;;                         will generate a merged dataset.
+;;  Output: (list) Generated datasets list, one per tag
+
+(define (merge-compatible project-id tag-datasets)
+  (iterate (acc {} tag (keys tag-datasets))
+    (if (> (count (tag-datasets tag)) 0)
+        (let (datasets (list-datasets {"tags__in" [tag] "project" project-id})
+             dataset-ids (map (lambda (x) (x "resource")) datasets)
+             tags ((head datasets) "tags")
+             name ((head datasets) "name"))
+          ;; create new merged dataset
+          (assoc acc tag (loop (ds datasets merged false)
+                           (if (= ds [merged])
+                               merged
+                               (let (ds-batch (take 2 dataset-ids)
+                                     rem-batch (drop 2 dataset-ids)
+                                     merged-ds (create-and-wait-dataset {"origin_datasets" ds-batch
+                                                                         "tags" tags
+                                                                         "name" name})
+                                     rem-batch (cons merged-ds rem-batch))
+                                 (delete* ds-batch)
+                                 (recur rem-batch merged-ds))))))
+          ;; get the last merged dataset
+          (assoc acc tag ((head (list-datasets {"tags__in" [tag]
+                                                "project" project-id
+                                                "limit" 1})) "resource")))))
+
+;; merge-compatible-datasets
+;;
+;; Creates a merged dataset for every kind of source found in a user-given
+;; project. If a non-empty tag-list is given, the analyzed sources are
+;; the ones that have any tag on the list. If no tag is given, all sources
+;; in the project are analyzed and a new tag is generated for each by
+;; using the number of fields and a hash of the fields' name sequence.
+;;
+;;  Inputs:
+;;    project: (string) Project ID or name for the sources to be found
+;;    tags-list: (list) Unique tags to group the sources. Each tag will
+;;                      generate a merged dataset. If empty, a default
+;;                      tag will be assigned to each source based on
+;;                      the number of fields and the md5 of the sequence
+;;                      of field names
+;;  Output: (map) Generated datasets per tag
+
+(define (merge-compatible-datasets project tags-list)
+  (let (project-id (get-project-id project)
+        sources (list-sources {"project" project-id})
+        tags-list (if (empty? tags-list)
+                      (make-sources-tag sources)
+                      tags-list)
+        tag-datasets (iterate (acc {} tag tags-list)
+                       ;; look for the last dataset with that tag
+                       ;; and select only sources
+                       ;; newer than the last dataset
+                       (let (last-ds (list-datasets {"tags" tag
+                                                     "project" project-id
+                                                     "limit" 1})
+                             last-date (if (empty? last-ds)
+                                           false
+                                           ((head last-ds) "created")))
+                         (assoc acc tag (create-sources-datasets project-id
+                                                                 tag
+                                                                 last-date)))))
+    (merge-compatible project-id tag-datasets)))
+
+(define output-datasets (merge-compatible-datasets project tags-list))
