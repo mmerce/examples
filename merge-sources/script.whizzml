@@ -112,7 +112,6 @@
              name ((head datasets) "name"))
           ;; create new merged dataset
           (assoc acc tag (loop (ds dataset-ids merged false)
-                           (log-info "** to be merged" ds)
                            (if (= ds [merged])
                                merged
                                (let (ds-batch (take MAX-MERGE-DS ds)
@@ -147,8 +146,6 @@
 
 (define (merge-compatible-datasets project tags-list)
   (let (project-id (get-project-id project)
-        _ (delete* (map (lambda (x) (x "resource"))
-                        (list-datasets {"project" project-id})))
         sources (list-sources {"project" project-id})
         tags-list (if (empty? tags-list)
                       (make-sources-tag sources)
