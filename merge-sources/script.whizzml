@@ -53,12 +53,13 @@
 
 (define (create-sources-datasets project-id tag last-date)
   (let (sources-args {"project" project-id "tags" tag}
-        _ (log-info last-date)
+        _ (log-info "Last merged dataset for tag " tag " created in: "
+                    last-date)
         sources-args (if last-date
                          (merge sources-args {"created__gt" last-date})
                          sources-args)
         sources (list-sources sources-args))
-    (log-info "** count" (count sources))
+    (log-info "Number of new sources to be accumulated: " (count sources))
     (for (source sources)
       (create "dataset" {"source" (source "resource")}))))
 
