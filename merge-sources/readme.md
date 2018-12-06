@@ -18,4 +18,5 @@ unique tag will be created based on their field names sequence.
 
 # Output
 
-- The map of tags and resulting datasets
+- The tags of the accumulated sources.
+- The merged datasets.

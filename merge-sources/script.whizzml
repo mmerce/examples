@@ -163,4 +163,7 @@
                                                                  last-date)))))
     (merge-compatible project-id tag-datasets)))
 
-(define output-datasets (merge-compatible-datasets project tags-list))
+(define output (merge-compatible-datasets project tags-list))
+
+(define output-tags (keys output))
+(define output-datasets (for (tag output-tags) (output tag)))
