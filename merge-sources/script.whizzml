@@ -1,5 +1,6 @@
 (define FIELDS-TAG-LABEL "fields-hash:")
 (define FIELDS-LABEL-LEN (count FIELDS-TAG-LABEL))
+(define MAX-MERGE-DS 32)
 
 ;; get-project-id
 ;;
@@ -110,21 +111,22 @@
              tags ((head datasets) "tags")
              name ((head datasets) "name"))
           ;; create new merged dataset
-          (assoc acc tag (loop (ds datasets merged false)
+          (assoc acc tag (loop (ds dataset-ids merged false)
+                           (log-info "** to be merged" ds)
                            (if (= ds [merged])
                                merged
-                               (let (ds-batch (take 2 dataset-ids)
-                                     rem-batch (drop 2 dataset-ids)
+                               (let (ds-batch (take MAX-MERGE-DS ds)
+                                     rem-batch (drop MAX-MERGE-DS ds)
                                      merged-ds (create-and-wait-dataset {"origin_datasets" ds-batch
                                                                          "tags" tags
                                                                          "name" name})
                                      rem-batch (cons merged-ds rem-batch))
                                  (delete* ds-batch)
                                  (recur rem-batch merged-ds))))))
-          ;; get the last merged dataset
-          (assoc acc tag ((head (list-datasets {"tags__in" [tag]
-                                                "project" project-id
-                                                "limit" 1})) "resource")))))
+        ;; get the last merged dataset
+        (assoc acc tag ((head (list-datasets {"tags__in" [tag]
+                                              "project" project-id
+                                              "limit" 1})) "resource")))))
 
 ;; merge-compatible-datasets
 ;;
@@ -145,6 +147,8 @@
 
 (define (merge-compatible-datasets project tags-list)
   (let (project-id (get-project-id project)
+        _ (delete* (map (lambda (x) (x "resource"))
+                        (list-datasets {"project" project-id})))
         sources (list-sources {"project" project-id})
         tags-list (if (empty? tags-list)
                       (make-sources-tag sources)
