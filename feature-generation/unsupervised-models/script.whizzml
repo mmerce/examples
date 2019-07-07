@@ -1,3 +1,14 @@
+(define (exclude-objective-fn dataset-id params)
+  (if exclude-objective
+    (let (excluded (params "excluded_fields" [])
+          objective-id (dataset-get-objective-id dataset-id)
+          )
+      (if objective-id
+          (assoc params "excluded_fields" (append excluded objective-id))
+          params))
+    params))
+
+
 (define (try-create-model type dataset params)
   (try
    (log-info " - Creating " type)
@@ -6,23 +17,29 @@
      (log-warn "Could not create the " type ": " e))))
 
 (define cluster-id
-  (try-create-model "cluster" train-dataset cluster-params))
+  (try-create-model "cluster"
+                    train-dataset
+                    (exclude-objective-fn train-dataset cluster-params)))
 
 (define association-id
-  (let (objective-id (dataset-get-objective-id train-dataset)
-        params (if (not (empty? association-params))
-                 association-params
-                 {"rhs_predicate" [{"field" objective-id}]}))
-    (try-create-model "association" train-dataset params)))
+  (try-create-model "association"
+                    train-dataset
+                    (exclude-objective-fn train-dataset association-params)))
 
 (define anomaly-id
-  (try-create-model "anomaly" train-dataset anomaly-params))
+  (try-create-model "anomaly"
+                    train-dataset
+                    (exclude-objective-fn train-dataset anomaly-params)))
 
 (define topicmodel-id
-  (try-create-model "topic" train-dataset topic-params))
+  (try-create-model "topic"
+                    train-dataset
+                    (exclude-objective-fn train-dataset topic-params)))
 
 (define pca-id
-  (try-create-model "pca" train-dataset pca-params))
+  (try-create-model "pca"
+                    train-dataset
+                    (exclude-objective-fn train-dataset pca-params)))
 
 (log-info "Unsupervised models generated.")
 (log-info "Now you should pass this execution to the feature-generation script")

@@ -10,6 +10,12 @@
           "description": "Train dataset to be extended"
       },
       {
+          "name": "exclude-objective",
+          "type": "boolean",
+          "default": "true",
+          "description": "Excludes objective field to avoid leakage"
+      },
+      {
           "name": "cluster-params",
           "type": "map",
           "default": {},
