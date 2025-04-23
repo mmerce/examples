@@ -116,6 +116,7 @@
                       (map f-id-fn group-fs))
         group-expr (map f-expr-fn group-ids)
         aggrs-exprs (aggrs-list field-aggrs f-id-fn f-expr-fn f-name-fn)
+        _ (log-info "select " (concat group-expr aggrs-exprs))
         ds (when (not (empty? field-aggrs))
              (create-dataset {"origin_datasets" [dataset-id]
                               "json_query" {"from" ["DS"]
@@ -166,20 +167,20 @@
 ;;
 ;; Inputs:
 ;;  fields: (map) Fields structure as found in the dataset dictionary
-;;  pivot-ids: (list) List of field IDs that will be inspected generate the
-;;                    new fields
-;;  value-ids: (list) List of field IDs that contain the aggregated value
-;;                    for the pivot
+;;  pivot-ids: (list) List of field IDs that will be inspected to generate the
+;;                    new fields (e.g. ["pivot"])
+;;  pivoted-ids: (list) List of field IDs that contain the aggregated value
+;;                    for the pivot (e.g. [["clicks"]])
 
-(define (expand-pivot fields pivot-ids value-ids)
-  (iterate (acc [] p-id pivot-ids p-v-id value-ids)
-    (let (f-expr-fn (lambda (x) (str "`" x "`"))
-          categories (map head (fields [p-id "summary" "categories"])))
+(define (expand-pivot fields pivot-ids pivoted-ids)
+  (iterate (acc [] p-id pivot-ids p-v-id-list pivoted-ids)
+    (let (categories (map head (fields [p-id "summary" "categories"])))
       (iterate (acc2 acc cat categories)
-        (log-info (flatline "(if (= (f {{p-id}}) {{cat}}) (f {{p-v-id}}) 0)"))
-        (append acc2 {"name" (underscore (str (fields [p-id "name"]) "_" cat))
-                      "field" (flatline "(if (= (f {{p-id}}) {{cat}})"
-                                        " (f {{p-v-id}}) 0)")})))))
+        (iterate (acc3 acc2 p-v-id p-v-id-list)
+            (log-info (flatline "(if (= (f {{p-id}}) {{cat}}) (f {{p-v-id}}) 0)"))
+            (append acc3 {"name" (underscore (str (fields [p-id "name"]) "_" cat "_" (fields [p-v-id "name"])))
+                          "field" (flatline "(if (= (f {{p-id}}) {{cat}})"
+                                            " (f {{p-v-id}}) 0)")}))))))
 
 
 
@@ -190,17 +191,21 @@
 ;;
 ;; Inputs:
 ;;  fields: (map) Fields structure as found in the dataset dictionary
-;;  pivot-fs: (list) List of field names or IDs to be used in pivoting
 ;;  pivot-ids: (list) List of the IDs corresponding to pivot-fs
 ;;  pivot-aggrs: (map) Map of the new field names and their corresponding
 ;;                     aggregators
+;;       {"pivot" {"value" ["aggrs"]}}
+;;  e.g. {"widget" {"clicks" ["sum"]}}
 
-(define (category-aggrs fields pivot-fs pivot-ids pivot-aggrs)
-  (iterate (acc {} p pivot-fs p-id pivot-ids)
+
+(define (category-aggrs fields pivot-ids pivoted-ids pivot-aggrs)
+  (iterate (acc {} p-id pivot-ids p-v-id-list pivoted-ids)
     (let (categories (map head (fields [p-id "summary" "categories"])))
       (iterate (acc2 acc cat categories)
-        (assoc acc2 (underscore (str (fields [p-id "name"]) "_" cat))
-                    (pivot-aggrs [p "aggrs"]))))))
+        (iterate (acc3 acc2 p-v-id p-v-id-list)
+            (assoc acc3 (underscore (str (fields [p-id "name"]) "_" cat "_" (fields [p-v-id "name"])))
+                        (pivot-aggrs [(fields [p-id "name"]) (fields [p-v-id "name"])])))))))
+
 
 ;; pivoting
 ;;
@@ -211,8 +216,8 @@
 ;;  dataset-id: (string) ID of the origin dataset
 ;;  pivot-aggrs: (map) Map describing the fields to be used as pivot, their
 ;;                     corresponding associated values and aggregators
-;;  e.g. {"widget" {"value" "clicks"
-;;                  "aggrs" ["sum"]}
+;;       {"pivot" {"value" ["aggrs"]}}
+;;  e.g. {"widget" {"clicks" ["sum"]}}
 
 
 (define (pivoting dataset-id pivot-aggrs group-fs)
@@ -222,24 +227,23 @@
         f-id-fn (lambda (x) ((find-field fields x) "id"))
         pivot-fs (keys pivot-aggrs)
         pivot-ids (map f-id-fn pivot-fs)
-        value-ids (map (lambda (x) ((find-field fields
-                                                (pivot-aggrs [x "value"]))
-                                                "id")) pivot-fs)
-        aggrs (map (lambda (x) (pivot-aggrs [x "aggrs"])) pivot-fs)
+        pivoted-ids (map (lambda (x) (map f-id-fn (keys (pivot-aggrs x)))) pivot-fs)
+        _ (log-info pivoted-ids)
         f-name-fn (lambda (x) (underscore (lower-case ((find-field fields x)
                                                         "name"))))
-        pivot-value-ids (concat pivot-ids value-ids)
+        pivot-value-ids (concat pivot-ids (flatten pivoted-ids))
         group-ids (if (empty? group-fs)
                       (filter (lambda (x) (not (member? x pivot-value-ids)))
                               (keys fields))
                       (map f-id-fn group-fs))
-        new-fields (expand-pivot fields pivot-ids value-ids)
+        new-fields (expand-pivot fields pivot-ids pivoted-ids)
         new-field-names (map (lambda (x) (x "name")) new-fields)
-        field-aggrs (category-aggrs fields pivot-fs pivot-ids pivot-aggrs)
+        field-aggrs (category-aggrs fields pivot-ids pivoted-ids pivot-aggrs)
         num-aggr-id (when (not (empty? pivot-aggrs))
                       (create-dataset {"origin_dataset" dataset-id
                                        "new_fields" new-fields
                                        "all_but" pivot-value-ids}))
         ds (aggr (wait num-aggr-id) field-aggrs group-ids))
+    (wait ds)
     (delete num-aggr-id)
     ds))
