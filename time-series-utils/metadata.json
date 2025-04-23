@@ -1,0 +1,8 @@
+{
+  "name": "Time series utilities",
+  "description": "Libraries and scripts to help preprocess Time Series data",
+  "kind": "package",
+  "components":[
+    "preprocessing"
+  ]
+}
