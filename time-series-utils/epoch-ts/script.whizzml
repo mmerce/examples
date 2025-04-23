@@ -1,0 +1,17 @@
+(define (create-norm-timeseries dataset-id epoch-field lapse objective-fields)
+  (let (dataset (fetch dataset-id)
+        fields (resource-fields dataset)
+        field (find-field fields epoch-field)
+        min-epoch (field ["summary" "minimum"])
+        max-epoch (field ["summary" "maximum"]))
+    (create-timeseries {"dataset" dataset-id
+                        "time_range" {"start" min-epoch
+                                      "end" max-epoch
+                                      "interval" lapse
+                                      "interval_unit" "ms"}
+                        "error" 1
+                        "trend" 0
+                        "seasonality" 0
+                        "objective_fields" objective-fields})))
+
+(define norm-timeseries (create-norm-timeseries dataset-id epoch-field lapse objective-fields))
