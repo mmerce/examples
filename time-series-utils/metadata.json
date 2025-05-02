@@ -4,6 +4,8 @@
   "kind": "package",
   "components":[
     "preprocessing",
-    "epoch-ts"
+    "epoch-ts",
+    "lags-windows",
+    "momentums-curvatures"
   ]
 }
