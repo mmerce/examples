@@ -12,10 +12,10 @@
                     (if (not item)
                         "NaN"
                         item))))
-    (delete (wait sample-id))
+    (delete sample-id)
     rows))
-    
-    
+
+
 ;; Checks for gaps in a epoch field and adds missing rows to ensure all
 ;; dates are present. It expects the rows to be sorted previously in an
 ;; ascendent sequence.
@@ -26,35 +26,42 @@
 (define (fill-gaps rows key-col num-key-col lapse)
   ((iterate (acc [-1 []] row rows)
      (if (< (acc 0) 0)
-         [(row num-key-col)  (append (acc 1) row)]
+         [(row num-key-col) (append (acc 1) row)]
          (let (next (+ (acc 0) lapse))
            (if (= next (row num-key-col))
                [(row num-key-col) (append (acc 1) row)]
                [(row num-key-col)
-                (append (concat (acc 1) (generate-missing-rows (count row) key-col num-key-col next (row num-key-col) lapse))
+                (append (concat (acc 1)
+                                (generate-missing-rows (count row)
+                                                       key-col
+                                                       num-key-col
+                                                       next
+                                                       (row num-key-col)
+                                                       lapse))
                         row)])))) 1))
-                        
+
 ;; Creates a list of missing rows of the given length with an epoch datetime
 ;; key column whose value is generated in the range defined by the start, end
 ;; and lapse parameters
 (define (generate-missing-rows row-length key-col num-key-col start end lapse)
   (for (time (range start end lapse))
-       (for (col (range 0 row-length))
-            (if (= num-key-col col)
-                time
-                ""))))
-                
-                
+    (for (col (range 0 row-length))
+         (if (= num-key-col col)
+             time
+             ""))))
+
+
 ;; Keeps only the first row based on a key-col epoch field, thus ensuring that no
-;; duplicates will be found for the key field 
+;; duplicates will be found for the key field
 (define (first rows num-key-col)
   ((iterate (acc [-1 []] row rows)
      (if (< (acc 0) 0)
          [(row num-key-col) (append (acc 1) row)]
          (if (= (row num-key-col) (acc 0))
              acc
-             [(row num-key-col) (append (acc 1) row)]))) 1))
-                          
+             [(row num-key-col) (append (acc 1) row)])))
+   1))
+
 ;; Create numeric key field if the original field optype is datetime
 (define (add-epoch dataset-id key-field-info dt-field-format)
   (let (key-field-name (key-field-info "name")
@@ -64,10 +71,10 @@
      (create-dataset {"origin_dataset" dataset-id
                       "name" ds-name
                       "new_fields"
-                         [{"names" [numeric-key-field]
-                           "field"
-                           (flatline "(epoch (f {{key-field-name}}) {{dt-field-format}})")
-                           "optype" "numeric"}]})]))
+                       [{"names" [numeric-key-field]
+                         "field"
+                         (flatline "(epoch (f {{key-field-name}}) {{dt-field-format}})")
+                         "optype" "numeric"}]})]))
 
 ;; Create new dataset sorting a key field in an ascending sequence
 (define (create-sorted-asc dataset-id key-field-info dt-field-format ds-name)
@@ -75,8 +82,8 @@
         (if (numeric-field? key-field-info)
             [key-field key-field dataset-id]
             (if (datetime-field? key-field-info)
-                 (add-epoch dataset-id key-field-info dt-field-format)
-                 (raise "The key field needs to be a numeric or datetime field")))
+                (add-epoch dataset-id key-field-info dt-field-format)
+                (raise "The key field needs to be a numeric or datetime field")))
         ds-id (create-dataset {"origin_dataset" ds-id
                                "name" ds-name
                                "origin_dataset_names" {ds-id  "DS"}
@@ -89,7 +96,7 @@
 ;; information and its name
 
 (define (rows-to-dataset rows fields ds-name)
-  (let (fields (sort-by-key "column_number" (values fields))         
+  (let (fields (sort-by-key "column_number" (values fields))
         headers (map (lambda (x) (x "name")) fields)
         data (join "\n" (map (lambda (r) (join "," r)) (cons headers rows)))
         source (create-source {"data" data})
@@ -109,17 +116,17 @@
                                  " (epoch-day (f {{num-key-field}})))"
                                  "(f {{key-field}}))")
                        "optype" "datetime"}]}))
-                                 
+
 ;; Extracts the rows in a dataset that contains an epoch datetime key field
-;; fills its gaps and removes duplicates in the key field according to the 
+;; fills its gaps and removes duplicates in the key field according to the
 ;; selected lapse
 ;; Inputs:
 ;;   dataset-id - The dataset ID
 ;;   key-field - Name of the datetime or numeric field used as key
-;;   lapse - Number of milliseconds that should separate each row   
+;;   lapse - Number of milliseconds that should separate each row
 ;;   dt-field-format - Format to parse the datetime key field (if needed). If empty, "YYYY-MM-dd" will be used.
 (define (ts-normalize dataset-id key-field lapse dt-field-format)
-  (let (fields (resource-fields dataset-id) 
+  (let (fields (resource-fields dataset-id)
         name ((fetch dataset-id) "name")
         sorted-name (str "non-decreasing " name)
         key-field-info (find-field fields key-field)
@@ -139,7 +146,7 @@
         (if (= key-col num-key-col)
             norm-ds
             (fill-datetime norm-ds key-field num-key-field))))
-       
+
 (define normalized-dataset (wait (ts-normalize dataset-id key-field lapse dt-field-format)))
 (for (id (created-resources)) (if (!= id normalized-dataset) (delete id)))
 normalized-dataset

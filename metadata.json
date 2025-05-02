@@ -48,5 +48,6 @@
     "statistical-tests",
     "time-aware-cross-validation",
     "balanced-optiml"
+    "time-series-utils"
   ]
 }
