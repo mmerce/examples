@@ -6,6 +6,6 @@
     "preprocessing",
     "epoch-ts",
     "lags-windows",
-    "momentums-curvatures"
+    "momenta-curvatures"
   ]
 }
