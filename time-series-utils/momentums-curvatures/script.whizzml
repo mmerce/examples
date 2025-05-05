@@ -1,0 +1,17 @@
+;; Adds momentum and curvature for the user-given list of fields
+(define (momentum-curvature-new-fields fields-mom-curv)
+  (flatten
+    (for (field fields-mom-curv)
+      [{"names" [(str field "-mom-1")]
+        "field" (flatline "(- (f {{field}} -1) (f {{field}} -2))")}
+       {"names" [(str field "-curv-1")]
+        "field" (flatline "(+ (- (f {{field}} -3) (* 2 (f {{field}} -2))) (f {{field}} -1))")}]  )))
+
+
+(define (ts-feature-engineering ds-id fields-mom-curv)
+  (let (new_fields (momentum-curvature-new-fields fields-mom-curv))
+    (create-dataset {"origin_dataset" ds-id
+                     "new_fields" new_fields})))
+
+;; Expanding features by adding momentum and curvature
+(define expanded-ts-ds (ts-feature-engineering ds-id fields-mom-curv))

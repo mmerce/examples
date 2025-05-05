@@ -1,0 +1,29 @@
+{
+  "kind": "script",
+  "name": "Time series feature engineering: lags and windows aggregations",
+  "source_code": "script.whizzml",
+  "inputs": [
+    {
+      "description": "Dataset ID",
+      "name": "ds-id",
+      "type": "dataset-id"
+    },
+    {
+      "description": "Map of fields to be added with a lag",
+      "name": "field-lags",
+      "type": "map"
+    },
+    {
+      "description": "Map of fields to be aggregated in windows",
+      "name": "field-windows",
+      "type": "map"
+    }
+  ],
+  "outputs": [
+    {
+      "description": "Dataset with extended columns",
+      "name": "expanded-ts-ds",
+      "type": "dataset-id"
+    }
+  ]
+}

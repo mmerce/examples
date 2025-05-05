@@ -1,0 +1,24 @@
+{
+  "kind": "script",
+  "name": "Time series feature engineering: momentums and curvatures",
+  "source_code": "script.whizzml",
+  "inputs": [
+    {
+      "description": "Dataset ID",
+      "name": "ds-id",
+      "type": "dataset-id"
+    },
+    {
+      "description": "Input a valid value",
+      "name": "fields-mom-curv",
+      "type": "list"
+    }
+  ],
+  "outputs": [
+    {
+      "description": "Dataset with extended columns",
+      "name": "expanded-ts-ds",
+      "type": "dataset-id"
+    }
+  ]
+}

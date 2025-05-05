@@ -1,0 +1,44 @@
+;; Adds lags to a normalized timeseries file by creating a new field that
+;; reflects the value of the field in the previous [x, y, z, ...] records
+;; Inputs:
+;;   field-lags: map corresponding to the fields to be used and the
+;;               lags to be applied. E.g.
+;;               {"steps" [1 3 7 14]}
+;;               will create columns that contain the steps in the previous
+;;               record, the third before, the 7th before and the
+;;               14th before
+(define (lags-new-fields field-lags)
+  (flatten
+    (for (field (keys field-lags))
+      (for (lag (field-lags field))
+        (let (name (str field "-" lag)
+              expr (flatline "(f {{field}} -{lag})"))
+          {"names" [name]
+           "field" expr})))))
+
+;; Adds windows to a normalized timeseries file by creating a new field that
+;; reflects the aggregated value of the field in the previous records range
+;; Inputs:
+;;   field-windows: map corresponding to the fields to be used and the
+;;                  windows to be applied. E.g.
+;;                  {"steps" {"mean" [[-3 -1] [-7 -1] [-14 -1]]}}
+;;                  will compute the mean value of the steps in the rows
+;;                  -1 to -3 (both included), -1 to -7 and -1 to -14
+(define (windows-new-fields field-windows)
+  (flatten
+    (for (field (keys field-windows))
+      (for (aggr-fn (keys (field-windows field)))
+        (for (wrange ((field-windows field) aggr-fn))
+        (let (name (str field "_" aggr-fn wrange)
+              [start end] wrange
+              expr (flatline "(window-{aggr-fn} {{field}} {start} {end})"))
+          {"names" [name]
+           "field" expr}))))))
+
+(define (ts-feature-engineering ds-id field-lags field-windows)
+  (let (new_fields (lags-new-fields field-lags)
+        new_fields (concat new_fields (windows-new-fields field-windows)))
+    (create-dataset {"origin_dataset" ds-id
+                     "new_fields" new_fields})))
+
+(define expanded-ts-ds (ts-feature-engineering ds-id field-lags field-windows))
