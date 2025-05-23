@@ -120,7 +120,7 @@
                                  " (epoch-day (f {{num-key-field}})))"
                                  "(f {{key-field}}))")
                        "optype" "datetime"}
-                      {"names" "day_number"
+                      {"names" ["day_number"]
                        "field"
                        (flatline "(row-number)")
                        "optype" "numeric"}]}))
