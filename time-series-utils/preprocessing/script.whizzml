@@ -2,6 +2,7 @@
 ;; Input: ds-id - Dataset ID
 ;; Output: list of rows values (no headers provided)
 (define (fetch-dataset-rows ds-id)
+  (log-info "Extracting sample from " ds-id)
   (let (sample-id (create-and-wait-sample {"dataset" ds-id})
         rows ((fetch ds-id) "rows")
         sample (fetch sample-id {"rows" rows
