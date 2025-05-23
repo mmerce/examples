@@ -99,8 +99,12 @@
 (define (rows-to-dataset rows fields ds-name)
   (let (fields (sort-by-key "column_number" (values fields))
         headers (map (lambda (x) (x "name")) fields)
-        data (join "\n" (map (lambda (r) (join "," r)) (cons headers rows)))
-        source (create-source {"data" data})
+        data (json-str (cons headers rows))
+        source (create-source {"data" data
+                               "source_parser" {
+                               "header" true
+                               "quote" "\""
+                               "separator" ","}})
         dataset (create-and-wait-dataset source {"name" ds-name}))
     (delete (wait source))
     dataset))
