@@ -1,6 +1,6 @@
 {
   "kind": "script",
-  "name": "Time series feature engineering: momentums and curvatures",
+  "name": "Time series feature engineering: momenta and curvatures",
   "source_code": "script.whizzml",
   "inputs": [
     {

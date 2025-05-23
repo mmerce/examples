@@ -104,6 +104,8 @@
     (delete (wait source))
     dataset))
 
+
+;; Adds new fields containing the date string and the day number
 (define (fill-datetime ds-id key-field num-key-field)
   (create-dataset {"origin_dataset" ds-id
                    "all_but" [key-field]
@@ -115,7 +117,11 @@
                                  " (epoch-month (f {{num-key-field}})) \"-\" "
                                  " (epoch-day (f {{num-key-field}})))"
                                  "(f {{key-field}}))")
-                       "optype" "datetime"}]}))
+                       "optype" "datetime"}
+                      {"names" "day_number"
+                       "field"
+                       (flatline "(row-number)")
+                       "optype" "numeric"}]}))
 
 ;; Extracts the rows in a dataset that contains an epoch datetime key field
 ;; fills its gaps and removes duplicates in the key field according to the
