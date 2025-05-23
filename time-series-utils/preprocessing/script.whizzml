@@ -107,6 +107,7 @@
 
 ;; Adds new fields containing the date string and the day number
 (define (fill-datetime ds-id key-field num-key-field)
+  (log-info "Filling datetime info in gaps")
   (create-dataset {"origin_dataset" ds-id
                    "all_but" [key-field]
                    "new_fields"
@@ -137,6 +138,7 @@
         sorted-name (str "non-decreasing " name)
         key-field-info (find-field fields key-field)
         dt-field-format (if (= "") "YYYY-MM-dd" dt-field-format)
+        _ (log-info "Sorting by " key-field)
         [key-field num-key-field ds-id] (create-sorted-asc dataset-id
                                                            key-field-info
                                                            dt-field-format
@@ -147,6 +149,7 @@
         ds-name (str "ts-normalized " name)
         rows (fetch-dataset-rows ds-id)
         rows (first rows num-key-col)
+        _ (log-info "Filling gaps")
         rows (fill-gaps rows key-col num-key-col lapse)
         norm-ds (rows-to-dataset rows fields ds-name))
         (if (= key-col num-key-col)
